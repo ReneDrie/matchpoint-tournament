@@ -27,6 +27,7 @@ The application uses normal, directly addressable routes:
 - `/beheer/instellingen` — Administrator settings and court management
 
 For the TransIP build, set `NEXT_PUBLIC_BASE_PATH=/tournament`; the same routes are then published below `/tournament`.
+De openbare inschrijfpagina verbergt de snelkoppeling naar de beheeromgeving automatisch in productie. Zet `NEXT_PUBLIC_SHOW_ADMIN_SHORTCUT=true` alleen wanneer die koppeling bewust in een testomgeving zichtbaar moet zijn.
 
 React-componenten staan per domein in `app/components/<ComponentName>/`. Componentgebonden state en API-acties staan in een naastgelegen `<ComponentName>.hooks.ts`-bestand; gedeelde types, configuratie en routinghelpers staan in `app/components/shared/`.
 

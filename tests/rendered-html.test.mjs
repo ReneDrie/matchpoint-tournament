@@ -60,6 +60,7 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(appHooks, /\/api\/public\/tournament/);
   assert.match(registrationHooks, /\/api\/registrations/);
   assert.match(registrationHooks, /invitation_token/);
+  assert.doesNotMatch(await (await render("/inschrijven")).text(), /Beheeromgeving →/);
   assert.match(waitlistHooks, /\/api\/waitlist/);
   assert.match(loginHooks, /\/api\/auth\/login/);
   assert.match(playerHooks, /\/api\/admin\/players/);

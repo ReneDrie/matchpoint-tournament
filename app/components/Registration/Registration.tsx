@@ -1,6 +1,7 @@
 "use client";
 
 import { Brand } from "../Brand/Brand";
+import { SHOW_ADMIN_SHORTCUT } from "../shared/config";
 import type { TournamentConfig } from "../shared/types";
 import { useRegistrationForm } from "./Registration.hooks";
 import { WaitlistForm } from "./WaitlistForm";
@@ -19,7 +20,7 @@ export function Registration({ close, tournament }: { close: () => void; tournam
   const registrationClosed = Boolean(tournament && !tournament.registration_available && !tournament.registration_full && !registration.invitationToken);
 
   return <div className="registration-page">
-    <header><Brand /><button onClick={close}>Beheeromgeving →</button></header>
+    <header><Brand />{SHOW_ADMIN_SHORTCUT && <button onClick={close}>Beheeromgeving →</button>}</header>
     <main>
       <div className="registration-intro"><span className="eyebrow">{tournament?.name?.toUpperCase() ?? "MATCHPOINT TOURNAMENT"} · {day} {month} {year}</span><h1>Jouw route naar<br />het <em>matchpoint.</em></h1><p>{capacity} spelers. Acht rondes. Eén winnaar. Op {eventDate} spelen we bij {tournament?.venue.name ?? "TVA Arkel"}.</p><div className="event-facts"><div><b>{day}</b><span>{month}<br />{year}</span></div><div><b>{price}</b><span>PER<br />SPELER</span></div><div><b>{capacity}</b><span>PLEKKEN<br />TOTAAL</span></div></div></div>
       {showWaitlist ? <WaitlistForm /> : registrationClosed ? <div className="registration-card waitlist-card"><p className="kicker">INSCHRIJVING GESLOTEN</p><h2>Inschrijven is niet meer mogelijk</h2><p className="muted">De inschrijfdeadline is verstreken. Neem bij vragen contact op met de organisatie.</p></div> : registration.invitationLoading ? <div className="registration-card waitlist-card">Uitnodiging controleren…</div> : !registration.invitationValid ? <div className="registration-card waitlist-card"><p className="form-error">{error}</p></div> : <form className="registration-card" onSubmit={submit}>
