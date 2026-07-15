@@ -3,14 +3,18 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { API_URL } from "../shared/config";
-import type { Player, PlayerDetail, Sponsor, StaffUser } from "../shared/types";
+import type { Player, PlayerDetail, Sponsor, StaffUser, WaitlistEntry } from "../shared/types";
 
 export function usePlayers({ user, rows, reload }: { user: StaffUser; rows: Player[]; reload: () => Promise<void> }) {
+  const [activeTab, setActiveTab] = useState<"players" | "waitlist">("players");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [error, setError] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<PlayerDetail | null>(null);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [notice, setNotice] = useState("");
   const filtered = rows.filter(player => {
     const haystack = `${player.name} ${player.email} ${player.knltb_number ?? ""}`.toLowerCase();
     return haystack.includes(search.toLowerCase()) && (status === "all" || player.registration_status === status);
@@ -44,7 +48,39 @@ export function usePlayers({ user, rows, reload }: { user: StaffUser; rows: Play
     setEditingPlayer(result.player);
   }
 
-  return { search, setSearch, status, setStatus, error, manualOpen, setManualOpen, editingPlayer, setEditingPlayer, filtered, checkIn, exportCsv, edit };
+  async function loadWaitlist() {
+    if (user.role !== "administrator") return;
+    setWaitlistLoading(true);
+    const response = await fetch(`${API_URL}/api/admin/waitlist`, { credentials: "include" });
+    if (response.ok) setWaitlist((await response.json()).entries);
+    else setError("Wachtlijst laden is niet gelukt.");
+    setWaitlistLoading(false);
+  }
+
+  async function invite(entry: WaitlistEntry) {
+    if (!window.confirm(`${entry.name} uitnodigen? De plek wordt 48 uur gereserveerd.`)) return;
+    setError(""); setNotice("");
+    const response = await fetch(`${API_URL}/api/admin/waitlist/${entry.id}/invite`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": user.csrf_token } });
+    const result = await response.json();
+    if (!response.ok) return setError(result.error ?? "Uitnodigen is niet gelukt.");
+    setNotice(result.email_status === "sent" ? `De uitnodiging is verstuurd naar ${entry.email}.` : result.invite_url ? `De e-mail staat klaar. Lokale testlink: ${result.invite_url}` : "De uitnodiging staat klaar voor verzending zodra Brevo is geconfigureerd.");
+    await loadWaitlist();
+  }
+
+  async function removeWaitlistEntry(entry: WaitlistEntry) {
+    if (!window.confirm(`${entry.name} van de wachtlijst verwijderen?`)) return;
+    const response = await fetch(`${API_URL}/api/admin/waitlist/${entry.id}`, { method: "DELETE", credentials: "include", headers: { "X-CSRF-Token": user.csrf_token } });
+    const result = await response.json();
+    if (!response.ok) return setError(result.error ?? "Verwijderen is niet gelukt.");
+    await loadWaitlist();
+  }
+
+  function selectTab(tab: "players" | "waitlist") {
+    setActiveTab(tab);
+    if (tab === "waitlist" && waitlist.length === 0) void loadWaitlist();
+  }
+
+  return { activeTab, selectTab, search, setSearch, status, setStatus, error, notice, manualOpen, setManualOpen, editingPlayer, setEditingPlayer, filtered, checkIn, exportCsv, edit, waitlist, waitlistLoading, invite, removeWaitlistEntry };
 }
 
 export function usePlayerForm({ user, player, initialSponsorId = "", saved, close }: { user: StaffUser; sponsors: Sponsor[]; player?: PlayerDetail; initialSponsorId?: string; saved: () => Promise<void>; close: () => void }) {

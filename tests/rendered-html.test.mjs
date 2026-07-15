@@ -40,9 +40,10 @@ test("server-renders the public presentation directly", async () => {
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, modalHooks, router, schema] = await Promise.all([
+  const [appHooks, registrationHooks, waitlistHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, modalHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Registration/WaitlistForm.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Login/Login.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Players/Players.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Settings/Settings.hooks.ts", import.meta.url), "utf8"),
@@ -58,10 +59,13 @@ test("keeps registration configuration and validation wired to the API", async (
 
   assert.match(appHooks, /\/api\/public\/tournament/);
   assert.match(registrationHooks, /\/api\/registrations/);
+  assert.match(registrationHooks, /invitation_token/);
+  assert.match(waitlistHooks, /\/api\/waitlist/);
   assert.match(loginHooks, /\/api\/auth\/login/);
   assert.match(playerHooks, /\/api\/admin\/players/);
   assert.match(playerHooks, /check-in/);
   assert.match(playerHooks, /players\/export/);
+  assert.match(playerHooks, /admin\/waitlist/);
   assert.match(appHooks, /window\.history\.pushState/);
   assert.match(appHooks, /popstate/);
   assert.match(registrationHooks, /date_of_birth/);
@@ -108,6 +112,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(schema, /included_players SMALLINT UNSIGNED/);
   assert.match(router, /sponsor_package\.updated/);
   assert.match(router, /assertSponsorPlayerCapacity/);
+  assert.match(router, /waitlist\.invited/);
+  assert.match(router, /waitlist_invitation/);
   assert.match(router, /sponsor\.logo_uploaded/);
   assert.match(router, /foreignObject/);
   assert.match(router, /uitvoerbare inhoud/);

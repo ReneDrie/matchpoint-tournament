@@ -46,6 +46,8 @@ The implemented foundation endpoints are:
 - `GET /api/public/tournament`
 - `GET /api/public/live`
 - `POST /api/registrations`
+- `POST /api/waitlist`
+- `GET /api/waitlist/invitation?token={token}`
 - `POST /api/payments/mollie-webhook`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
@@ -57,6 +59,9 @@ The implemented foundation endpoints are:
 - `GET/POST /api/admin/tournaments/{id}/courts` (Administrator)
 - `PATCH/DELETE /api/admin/courts/{id}` (Administrator)
 - `GET /api/admin/players` (staff)
+- `GET /api/admin/waitlist` (Administrator)
+- `POST /api/admin/waitlist/{id}/invite` (Administrator)
+- `DELETE /api/admin/waitlist/{id}` (Administrator)
 - `POST/PATCH/DELETE /api/admin/sponsor-tiers` (Administrator)
 - `GET/POST/PATCH /api/admin/sponsors` (Administrator)
 - `POST /api/admin/sponsors/{id}/logo` (Administrator, veilige SVG-upload van maximaal 2 MB)

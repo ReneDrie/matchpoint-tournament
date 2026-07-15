@@ -25,7 +25,7 @@ export function useTournamentApp(initialView: View) {
       const adminResponse = await fetch(`${API_URL}/api/admin/tournaments/${tournament?.id ?? 1}`, { credentials: "include" });
       if (adminResponse.ok) {
         const settings = (await adminResponse.json()).tournament;
-        setTournament(current => ({ ...settings, confirmed_players: current?.confirmed_players ?? 0, active_courts: current?.active_courts ?? 0, registration_available: false }));
+        setTournament(current => ({ ...settings, confirmed_players: current?.confirmed_players ?? 0, active_courts: current?.active_courts ?? 0, registration_available: false, registration_full: current?.registration_full ?? false }));
       }
     }
   }

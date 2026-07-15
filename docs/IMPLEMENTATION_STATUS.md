@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** configureerbare sponsorpakketten met kosten, spelerslimieten en sponsorcontacten
+**Laatste afgeronde feature:** publieke wachtlijst met dashboardbeheer en veilige 48-uurs uitnodigingslinks
 
 ## Statuslegenda
 
@@ -16,11 +16,10 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ### Productie-integraties — fase 5A
 
-De eerstvolgende aanbevolen bouwstap maakt de inschrijfflow productieklaar:
+De eerstvolgende aanbevolen bouwstap rondt betaling en bevestiging af:
 
 - Mollie testbetaling end-to-end doorlopen.
 - Bevestigingspagina en betaalbevestigingsmail afronden.
-- Wachtlijst met uitnodigingsmail implementeren.
 - Brevo-afzender en templates configureren.
 - Veilige e-maillinks voor spelers toevoegen.
 
@@ -58,7 +57,8 @@ Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 - 🟡 Mollie-flow met echte test- en productiekeys volledig doorlopen.
 - 🟡 Bevestigingspagina na betaling afronden.
 - 🟡 Bevestigingsmail via Brevo versturen.
-- 🟡 Wachtlijstformulier, beheer en uitnodigingsmail implementeren.
+- ✅ Wachtlijstformulier, dashboardbeheer, plekreservering en veilige uitnodigingslink.
+- ✅ Uitnodigingsmail wordt via Brevo verzonden of zonder key veilig in de lokale mailwachtrij gezet.
 - 🟡 Beveiligde e-maillinks voor spelers implementeren.
 - 🟡 Spotify-zoekresultaat suggereren en opslaan.
 - ⬜ Wachtwoord vergeten/herstellen voor staff.
@@ -88,7 +88,7 @@ Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 
 - 🟡 Een annulering of terugbetaling is als status wijzigbaar, maar nog niet gekoppeld aan een echte Mollie-refund.
 - ✅ Sponsorlogo veilig als SVG uploaden, vervangen en tonen.
-- 🟡 Wachtlijst beheren vanuit het dashboard.
+- ✅ Wachtlijst beheren vanuit het dashboard, inclusief uitnodigen en verwijderen.
 - 🟡 Handmatige e-mail aan geselecteerde of alle deelnemers.
 - 🟡 Auditlog zichtbaar maken voor Administrators.
 - ⬜ Excel-export naast CSV.

@@ -102,6 +102,7 @@ td{padding:16px 22px;font-size:13px}
 .settings-tabs button strong{font-size:14px}.settings-tabs button span{font-size:11px;margin-top:3px}
 .settings-tabs button.active{background:white;color:var(--purple);box-shadow:0 3px 12px rgba(64,0,70,.08)}
 .sponsor-tabs{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0}
+.crm-tabs{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0}.waitlist-card{align-self:center}.invitation-notice{margin:0 0 18px;padding:12px 14px;border-radius:8px;background:#f0e9f1;color:var(--purple);font-size:12px;font-weight:700}.waitlist-notice{overflow-wrap:anywhere}.compact-action{padding:8px 11px;font-size:11px}
 .settings-grid{gap:20px}.settings-section,.court-settings{padding:27px}
 .settings-single{max-width:900px}
 .settings-section-title{gap:14px;padding-bottom:21px}

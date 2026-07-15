@@ -258,6 +258,29 @@ function publicAssetUrl(?string $path): ?string
     return rtrim(getenv('APP_URL') ?: '', '/') . '/' . ltrim($path, '/');
 }
 
+function sendTransactionalEmail(PDO $db, int $tournamentId, int $userId, string $recipient, string $subject, string $html, array $metadata): string
+{
+    $apiKey = trim((string)getenv('BREVO_API_KEY'));
+    $status = 'queued';
+    $providerId = null;
+    if ($apiKey !== '' && !str_contains($apiKey, 'xxxxxxxx')) {
+        $payload = json_encode([
+            'sender' => ['name' => getenv('BREVO_FROM_NAME') ?: 'Matchpoint Tournament', 'email' => getenv('BREVO_FROM_EMAIL') ?: 'info@matchpointtournament.nl'],
+            'to' => [['email' => $recipient]],
+            'subject' => $subject,
+            'htmlContent' => $html,
+        ], JSON_THROW_ON_ERROR);
+        $context = stream_context_create(['http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\napi-key: {$apiKey}\r\n", 'content' => $payload, 'timeout' => 10, 'ignore_errors' => true]]);
+        $response = @file_get_contents('https://api.brevo.com/v3/smtp/email', false, $context);
+        $result = $response ? json_decode($response, true) : null;
+        if (is_array($result) && isset($result['messageId'])) { $status = 'sent'; $providerId = (string)$result['messageId']; }
+        else $status = 'failed';
+    }
+    $db->prepare('INSERT INTO email_messages (tournament_id, created_by, message_type, recipient_email, subject, provider_message_id, status, metadata_json, sent_at) VALUES (?, ?, \'waitlist_invitation\', ?, ?, ?, ?, ?, ?)')
+        ->execute([$tournamentId, $userId, $recipient, $subject, $providerId, $status, json_encode($metadata, JSON_UNESCAPED_SLASHES), $status === 'sent' ? date('Y-m-d H:i:s') : null]);
+    return $status;
+}
+
 function presentationSlidesPayload(PDO $db, int $tournamentId, bool $activeOnly = false): array
 {
     $statement = $db->prepare(
@@ -305,13 +328,16 @@ try {
         if (!$tournament) Http::json(['error' => 'Er is momenteel geen actief toernooi.'], 404);
         $confirmed = $db->prepare("SELECT COUNT(*) FROM players WHERE tournament_id = ? AND registration_status = 'confirmed'");
         $confirmed->execute([(int)$tournament['id']]);
+        $occupied = $db->prepare("SELECT (SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))) + (SELECT COUNT(*) FROM waitlist_entries WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at > NOW())");
+        $occupied->execute([(int)$tournament['id'], (int)$tournament['id']]);
         $activeCourts = $db->prepare('SELECT COUNT(*) FROM courts WHERE tournament_id = ? AND is_active = 1');
         $activeCourts->execute([(int)$tournament['id']]);
         $payload = publicTournament($tournament);
         $payload['confirmed_players'] = (int)$confirmed->fetchColumn();
         $payload['active_courts'] = (int)$activeCourts->fetchColumn();
+        $payload['registration_full'] = (int)$occupied->fetchColumn() >= $payload['capacity'];
         $payload['registration_available'] = $tournament['status'] === 'registration'
-            && $payload['confirmed_players'] < $payload['capacity']
+            && !$payload['registration_full']
             && new DateTimeImmutable($tournament['registration_deadline_at'], new DateTimeZone($tournament['timezone'])) > new DateTimeImmutable('now', new DateTimeZone($tournament['timezone']));
         Http::json(['tournament' => $payload]);
     }
@@ -1373,6 +1399,96 @@ try {
         Http::json(['tournament' => publicTournament($tournament), 'upcoming_matches' => $upcoming->fetchAll(), 'featured_round' => $featured, 'slides' => presentationSlidesPayload($db, (int)$tournament['id'], true), 'refreshed_at' => gmdate(DATE_ATOM)]);
     }
 
+    if ($method === 'POST' && $path === '/api/waitlist') {
+        RateLimiter::check($db, 'waitlist', Http::ip(), 8, 30);
+        $data = Http::input();
+        if (!empty($data['website'])) Http::json(['received' => true], 202);
+        $name = trim((string)($data['name'] ?? ''));
+        $email = strtolower(trim((string)($data['email'] ?? '')));
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) Http::json(['error' => 'Vul je naam en een geldig e-mailadres in.'], 422);
+        $tournament = $db->query("SELECT * FROM tournaments WHERE status = 'registration' ORDER BY starts_at LIMIT 1")->fetch();
+        if (!$tournament) Http::json(['error' => 'De inschrijving is gesloten.'], 409);
+        $deadline = new DateTimeImmutable($tournament['registration_deadline_at'], new DateTimeZone($tournament['timezone']));
+        if ($deadline <= new DateTimeImmutable('now', new DateTimeZone($tournament['timezone']))) Http::json(['error' => 'De inschrijfdeadline is verstreken.'], 409);
+        $occupied = $db->prepare("SELECT (SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))) + (SELECT COUNT(*) FROM waitlist_entries WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at > NOW())");
+        $occupied->execute([(int)$tournament['id'], (int)$tournament['id']]);
+        if ((int)$occupied->fetchColumn() < (int)$tournament['capacity']) Http::json(['error' => 'Er is momenteel nog een plek beschikbaar. Je kunt je direct inschrijven.'], 409);
+        $existing = $db->prepare('SELECT id, status, position FROM waitlist_entries WHERE tournament_id = ? AND email = ? LIMIT 1');
+        $existing->execute([(int)$tournament['id'], $email]);
+        $entry = $existing->fetch();
+        if ($entry && !in_array($entry['status'], ['removed', 'expired'], true)) Http::json(['joined' => true, 'position' => (int)$entry['position']]);
+        $position = (int)$db->query('SELECT COALESCE(MAX(position), 0) + 1 FROM waitlist_entries WHERE tournament_id = ' . (int)$tournament['id'])->fetchColumn();
+        if ($entry) {
+            $db->prepare("UPDATE waitlist_entries SET name = ?, status = 'waiting', position = ?, invitation_token_hash = NULL, invited_at = NULL, invitation_expires_at = NULL WHERE id = ?")
+                ->execute([$name, $position, (int)$entry['id']]);
+            $entryId = (int)$entry['id'];
+        } else {
+            $db->prepare('INSERT INTO waitlist_entries (tournament_id, name, email, position) VALUES (?, ?, ?, ?)')->execute([(int)$tournament['id'], $name, $email, $position]);
+            $entryId = (int)$db->lastInsertId();
+        }
+        Audit::record($db, 'waitlist.joined', 'waitlist_entry', $entryId, null, (int)$tournament['id'], ['position' => $position]);
+        Http::json(['joined' => true, 'position' => $position], 201);
+    }
+
+    if ($method === 'GET' && $path === '/api/waitlist/invitation') {
+        $token = (string)($_GET['token'] ?? '');
+        if (strlen($token) !== 64) Http::json(['error' => 'Deze uitnodiging is ongeldig.'], 422);
+        $statement = $db->prepare("SELECT w.id, w.name, w.email, w.invitation_expires_at, t.name AS tournament_name FROM waitlist_entries w JOIN tournaments t ON t.id = w.tournament_id WHERE w.invitation_token_hash = ? AND w.status = 'invited' AND w.invitation_expires_at > NOW() LIMIT 1");
+        $statement->execute([hash('sha256', $token)]);
+        $invitation = $statement->fetch();
+        if (!$invitation) Http::json(['error' => 'Deze uitnodiging is gebruikt, verlopen of ongeldig.'], 410);
+        Http::json(['invitation' => $invitation]);
+    }
+
+    if ($method === 'GET' && $path === '/api/admin/waitlist') {
+        Auth::requireRole($db, ['administrator']);
+        $tournamentId = max(1, (int)($_GET['tournament_id'] ?? 1));
+        $db->prepare("UPDATE waitlist_entries SET status = 'expired', invitation_token_hash = NULL WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at <= NOW()")
+            ->execute([$tournamentId]);
+        $statement = $db->prepare('SELECT id, name, email, position, status, invited_at, invitation_expires_at, created_at FROM waitlist_entries WHERE tournament_id = ? ORDER BY position');
+        $statement->execute([$tournamentId]);
+        Http::json(['entries' => $statement->fetchAll()]);
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/waitlist/(\d+)/invite$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $entryId = (int)$matches[1];
+        $db->beginTransaction();
+        $statement = $db->prepare('SELECT w.*, t.name AS tournament_name, t.capacity FROM waitlist_entries w JOIN tournaments t ON t.id = w.tournament_id WHERE w.id = ? FOR UPDATE');
+        $statement->execute([$entryId]);
+        $entry = $statement->fetch();
+        if (!$entry || !in_array($entry['status'], ['waiting', 'expired', 'invited'], true)) Http::json(['error' => 'Deze wachtlijstinschrijving kan niet worden uitgenodigd.'], 409);
+        $occupied = $db->prepare("SELECT (SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))) + (SELECT COUNT(*) FROM waitlist_entries WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at > NOW() AND id <> ?)");
+        $occupied->execute([(int)$entry['tournament_id'], (int)$entry['tournament_id'], $entryId]);
+        if ((int)$occupied->fetchColumn() >= (int)$entry['capacity']) Http::json(['error' => 'Er is nog geen vrije plek om te reserveren voor deze uitnodiging.'], 409);
+        $token = bin2hex(random_bytes(32));
+        $expiresAt = (new DateTimeImmutable('+48 hours'))->format('Y-m-d H:i:s');
+        $db->prepare("UPDATE waitlist_entries SET status = 'invited', invitation_token_hash = ?, invited_at = NOW(), invitation_expires_at = ? WHERE id = ?")
+            ->execute([hash('sha256', $token), $expiresAt, $entryId]);
+        $frontend = rtrim(getenv('FRONTEND_URL') ?: 'http://localhost:3000', '/');
+        $base = trim(getenv('NEXT_PUBLIC_BASE_PATH') ?: getenv('APP_BASE_PATH') ?: '', '/');
+        $inviteUrl = $frontend . ($base ? '/' . $base : '') . '/inschrijven?uitnodiging=' . $token;
+        $subject = 'Er is een plek vrij voor ' . $entry['tournament_name'];
+        $html = '<h1>Je kunt je inschrijven</h1><p>Hallo ' . htmlspecialchars($entry['name']) . ', er is een plek vrijgekomen voor ' . htmlspecialchars($entry['tournament_name']) . '.</p><p><a href="' . htmlspecialchars($inviteUrl) . '">Schrijf je binnen 48 uur in</a></p>';
+        $mailStatus = sendTransactionalEmail($db, (int)$entry['tournament_id'], (int)$user['id'], $entry['email'], $subject, $html, ['waitlist_entry_id' => $entryId, 'invite_url' => $inviteUrl, 'expires_at' => $expiresAt]);
+        Audit::record($db, 'waitlist.invited', 'waitlist_entry', $entryId, $user['id'], (int)$entry['tournament_id'], ['email_status' => $mailStatus]);
+        $db->commit();
+        $response = ['invited' => true, 'expires_at' => $expiresAt, 'email_status' => $mailStatus];
+        if (getenv('APP_ENV') === 'local') $response['invite_url'] = $inviteUrl;
+        Http::json($response);
+    }
+
+    if ($method === 'DELETE' && preg_match('#^/api/admin/waitlist/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $statement = $db->prepare("UPDATE waitlist_entries SET status = 'removed', invitation_token_hash = NULL, invitation_expires_at = NULL WHERE id = ? AND status <> 'registered'");
+        $statement->execute([(int)$matches[1]]);
+        if ($statement->rowCount() === 0) Http::json(['error' => 'Wachtlijstinschrijving niet gevonden of al geregistreerd.'], 404);
+        Audit::record($db, 'waitlist.removed', 'waitlist_entry', (int)$matches[1], $user['id']);
+        Http::json(['removed' => true]);
+    }
+
     if ($method === 'POST' && $path === '/api/registrations') {
         $data = Http::input();
         if (!empty($data['website'])) Http::json(['received' => true], 202);
@@ -1392,9 +1508,17 @@ try {
         $birthDate = DateTimeImmutable::createFromFormat('!Y-m-d', (string)$data['date_of_birth']);
         $startDate = new DateTimeImmutable($tournament['starts_at'], new DateTimeZone($tournament['timezone']));
         if (!$birthDate || $birthDate->modify('+18 years') > $startDate) Http::json(['error' => 'Je moet op de toernooidatum minimaal 18 jaar zijn.'], 422);
+        $invitation = null;
+        $invitationToken = (string)($data['invitation_token'] ?? '');
+        if ($invitationToken !== '') {
+            $invited = $db->prepare("SELECT * FROM waitlist_entries WHERE tournament_id = ? AND invitation_token_hash = ? AND status = 'invited' AND invitation_expires_at > NOW() LIMIT 1");
+            $invited->execute([(int)$tournament['id'], hash('sha256', $invitationToken)]);
+            $invitation = $invited->fetch();
+            if (!$invitation || strtolower($data['email']) !== strtolower($invitation['email'])) Http::json(['error' => 'Deze wachtlijstuitnodiging is ongeldig of hoort bij een ander e-mailadres.'], 410);
+        }
         $count = $db->prepare("SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))");
         $count->execute([(int)$tournament['id']]);
-        if ((int)$count->fetchColumn() >= (int)$tournament['capacity']) Http::json(['error' => 'Het toernooi is vol. Schrijf je in voor de wachtlijst.'], 409);
+        if (!$invitation && (int)$count->fetchColumn() >= (int)$tournament['capacity']) Http::json(['error' => 'Het toernooi is vol. Schrijf je in voor de wachtlijst.'], 409);
 
         $db->beginTransaction();
         $statement = $db->prepare("INSERT INTO players (
@@ -1407,6 +1531,7 @@ try {
             trim($data['entrance_song_query']), $tournament['privacy_version'], $tournament['terms_version'],
         ]);
         $playerId = (int)$db->lastInsertId();
+        if ($invitation) $db->prepare("UPDATE waitlist_entries SET status = 'registered', invitation_token_hash = NULL WHERE id = ?")->execute([(int)$invitation['id']]);
 
         $mollie = new MollieApiClient();
         $mollie->setApiKey(getenv('MOLLIE_API_KEY') ?: '');

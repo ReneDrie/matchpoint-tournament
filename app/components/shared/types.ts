@@ -24,6 +24,7 @@ export type TournamentConfig = {
   presentation_defaults: { slide_seconds: number; upcoming_match_count: number };
   confirmed_players: number;
   registration_available: boolean;
+  registration_full: boolean;
   active_courts: number;
 };
 
@@ -172,6 +173,17 @@ export type Player = {
 };
 
 export type PlayerDetail = Player & { date_of_birth: string };
+
+export type WaitlistEntry = {
+  id: number;
+  name: string;
+  email: string;
+  position: number;
+  status: "waiting" | "invited" | "registered" | "expired" | "removed";
+  invited_at: string | null;
+  invitation_expires_at: string | null;
+  created_at: string;
+};
 
 export type Sponsor = {
   id: number;
