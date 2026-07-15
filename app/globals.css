@@ -101,6 +101,7 @@ td{padding:16px 22px;font-size:13px}
 .settings-tabs button strong,.settings-tabs button span{display:block}
 .settings-tabs button strong{font-size:14px}.settings-tabs button span{font-size:11px;margin-top:3px}
 .settings-tabs button.active{background:white;color:var(--purple);box-shadow:0 3px 12px rgba(64,0,70,.08)}
+.sponsor-tabs{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0}
 .settings-grid{gap:20px}.settings-section,.court-settings{padding:27px}
 .settings-single{max-width:900px}
 .settings-section-title{gap:14px;padding-bottom:21px}

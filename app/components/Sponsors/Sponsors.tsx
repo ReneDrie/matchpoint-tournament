@@ -15,11 +15,15 @@ export function Sponsors({ user, sponsors, tiers, players, reloadSponsors, reloa
   const editingPackage = controller.packageModal !== "new" ? controller.packageModal : null;
   return <>
     <section className="sponsor-page">
-      <section className="panel sponsor-packages">
+      <div className="settings-tabs sponsor-tabs" role="tablist" aria-label="Sponsorbeheer">
+        <button type="button" role="tab" aria-selected={controller.activeTab === "sponsors"} className={controller.activeTab === "sponsors" ? "active" : ""} onClick={() => controller.setActiveTab("sponsors")}><strong>Sponsors</strong><span>Partners en gekoppelde spelers</span></button>
+        <button type="button" role="tab" aria-selected={controller.activeTab === "packages"} className={controller.activeTab === "packages" ? "active" : ""} onClick={() => controller.setActiveTab("packages")}><strong>Sponsorpakketten</strong><span>Kosten en inbegrepen spelers</span></button>
+      </div>
+      {controller.activeTab === "packages" && <section className="panel sponsor-packages" role="tabpanel">
         <div className="table-heading"><div><p>FACTURATIE EN SPELERS</p><h2>Sponsorpakketten</h2></div><button className="secondary" onClick={() => controller.setPackageModal("new")}>＋ Pakket toevoegen</button></div>
         <div className="sponsor-package-grid">{tiers.map(tier => <button key={tier.id} onClick={() => controller.setPackageModal(tier)}><div><span>{tier.sponsor_count} sponsor{tier.sponsor_count === 1 ? "" : "s"}</span><h3>{tier.name}</h3></div><strong>{money(Number(tier.cost_cents))}</strong><small>Eenmalig · {tier.included_players} extra spelers inbegrepen</small><i>Wijzigen →</i></button>)}</div>
-      </section>
-      <section className="panel full">
+      </section>}
+      {controller.activeTab === "sponsors" && <section className="panel full" role="tabpanel">
         <div className="table-heading"><div><p>PARTNERS VAN HET TOERNOOI</p><h2>Sponsors</h2></div><button className="primary" onClick={() => controller.setSponsorModal(true)} disabled={tiers.length === 0}>＋ Sponsor toevoegen</button></div>
         {sponsors.length === 0 ? <div className="empty-state"><strong>Nog geen sponsors toegevoegd</strong><span>Voeg eerst een sponsor toe en koppel die aan een pakket.</span></div> : <div className="sponsor-management-grid">{sponsors.map(sponsor => {
           const sponsoredPlayers = players.filter(player => player.sponsor_id === sponsor.id && player.registration_status === "confirmed");
@@ -33,7 +37,7 @@ export function Sponsors({ user, sponsors, tiers, players, reloadSponsors, reloa
             <button className="secondary sponsor-add-player" onClick={() => controller.setPlayerSponsor(sponsor)} disabled={!sponsor.is_active || full}>{full ? "Spelerslimiet bereikt" : "＋ Speler toevoegen"}</button>
           </article>;
         })}</div>}
-      </section>
+      </section>}
     </section>
     {controller.packageModal && <SponsorPackageModal user={user} sponsorPackage={editingPackage ?? undefined} close={() => controller.setPackageModal(null)} saved={reloadSponsors} />}
     {controller.sponsorModal && <SponsorModal user={user} tiers={tiers} close={() => controller.setSponsorModal(false)} saved={reloadSponsors} />}

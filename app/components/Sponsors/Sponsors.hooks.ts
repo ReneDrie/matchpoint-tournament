@@ -5,13 +5,16 @@ import type { FormEvent } from "react";
 import { API_URL } from "../shared/config";
 import type { Sponsor, SponsorTier, StaffUser } from "../shared/types";
 
+export type SponsorsTab = "sponsors" | "packages";
+
 export function useSponsors({ reloadPlayers, reloadSponsors }: { reloadPlayers: () => Promise<void>; reloadSponsors: () => Promise<void> }) {
+  const [activeTab, setActiveTab] = useState<SponsorsTab>("sponsors");
   const [sponsorModal, setSponsorModal] = useState(false);
   const [playerSponsor, setPlayerSponsor] = useState<Sponsor | null>(null);
   const [editingSponsor, setEditingSponsor] = useState<Sponsor | null>(null);
   const [packageModal, setPackageModal] = useState<SponsorTier | "new" | null>(null);
   async function playerSaved() { await Promise.all([reloadPlayers(), reloadSponsors()]); }
-  return { sponsorModal, setSponsorModal, playerSponsor, setPlayerSponsor, editingSponsor, setEditingSponsor, packageModal, setPackageModal, playerSaved };
+  return { activeTab, setActiveTab, sponsorModal, setSponsorModal, playerSponsor, setPlayerSponsor, editingSponsor, setEditingSponsor, packageModal, setPackageModal, playerSaved };
 }
 
 export function useSponsorForm({ user, tiers, sponsor, saved, close }: { user: StaffUser; tiers: SponsorTier[]; sponsor?: Sponsor; saved: () => Promise<void>; close: () => void }) {

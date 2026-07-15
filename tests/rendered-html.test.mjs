@@ -72,6 +72,7 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(settingsHooks, /surface/);
   assert.match(sponsorHooks, /sponsor-tiers/);
   assert.match(sponsorHooks, /player_limit_override/);
+  assert.match(sponsorHooks, /useState<SponsorsTab>\("sponsors"\)/);
   assert.match(sponsorHooks, /sponsors\/\$\{result\.sponsor_id\}\/logo/);
   assert.match(router, /tournament\.settings_updated/);
   assert.match(router, /court\.created/);
