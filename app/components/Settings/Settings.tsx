@@ -1,6 +1,7 @@
 "use client";
 
 import type { StaffUser } from "../shared/types";
+import { StaffAccounts } from "../StaffAccounts/StaffAccounts";
 import { CourtRow } from "./CourtRow";
 import { useSettings } from "./Settings.hooks";
 import type { SettingsTab } from "./Settings.hooks";
@@ -12,6 +13,7 @@ const tabs: { id: SettingsTab; label: string; description: string }[] = [
   { id: "planning", label: "Planning", description: "Wedstrijden en pauzes" },
   { id: "presentation", label: "Presentatie", description: "Live scherm" },
   { id: "courts", label: "Banen", description: "Beschikbare speelbanen" },
+  { id: "staff", label: "Accounts", description: "Hosts en uitnodigingen" },
 ];
 
 export function Settings({ tournamentId, user, onTournamentSaved }: { tournamentId: number; user: StaffUser; onTournamentSaved: () => Promise<void> }) {
@@ -24,7 +26,7 @@ export function Settings({ tournamentId, user, onTournamentSaved }: { tournament
     <form onSubmit={settings.save}>
       <section className="panel settings-heading">
         <div><p>TOERNOOI CONFIGURATIE</p><h2>{form.name}</h2><span>Wijzigingen gelden direct voor de inschrijving en vormen de basis voor de loting en planning.</span></div>
-        {settings.activeTab !== "courts" && <button className="primary" disabled={settings.busy}>{settings.busy ? "Opslaan…" : "Toernooi-instellingen opslaan"}</button>}
+        {settings.activeTab !== "courts" && settings.activeTab !== "staff" && <button className="primary" disabled={settings.busy}>{settings.busy ? "Opslaan…" : "Toernooi-instellingen opslaan"}</button>}
       </section>
       {settings.error && <p className="settings-message error">{settings.error}</p>}
       {settings.success && <p className="settings-message success">{settings.success}</p>}
@@ -43,5 +45,6 @@ export function Settings({ tournamentId, user, onTournamentSaved }: { tournament
     </form>
 
     {settings.activeTab === "courts" && <section className="panel court-settings"><div className="settings-section-title"><span>05</span><div><h3>Banen</h3><p>Naam en ondergrond worden automatisch opgeslagen zodra je een veld verlaat.</p></div></div><div className="court-setting-list">{settings.courts.map(court => <CourtRow key={court.id} court={court} user={user} saved={settings.courtSaved} onError={settings.setError} />)}</div><form className="add-court-form" onSubmit={settings.createCourt}><div><strong>Nieuwe baan toevoegen</strong><span>Bijvoorbeeld “Baan 3” of “Centre Court”.</span></div><input required value={settings.newCourtName} onChange={event => settings.setNewCourtName(event.target.value)} placeholder="Baannaam" /><input value={settings.newCourtSurface} onChange={event => settings.setNewCourtSurface(event.target.value)} placeholder="Ondergrond (optioneel)" /><button className="primary">＋ Baan toevoegen</button></form></section>}
+    {settings.activeTab === "staff" && <StaffAccounts user={user} />}
   </div>;
 }

@@ -33,6 +33,12 @@ test("all management URLs can be loaded directly", async () => {
   }
 });
 
+test("server-renders a Host invitation directly", async () => {
+  const response = await render("/beheer/uitnodiging?token=test");
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /HOST-UITNODIGING/i);
+});
+
 test("server-renders the public presentation directly", async () => {
   const response = await render("/presentatie");
   assert.equal(response.status, 200);
@@ -115,6 +121,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(router, /payment_reservation_expires_at/);
   assert.match(router, /reconcileMolliePayment/);
   assert.match(router, /payment_confirmation/);
+  assert.match(router, /staff\.status_changed/);
+  assert.match(router, /\/api\/admin\/staff/);
   assert.match(schema, /CREATE TABLE tournaments/);
   assert.match(schema, /CREATE TABLE user_sessions/);
   assert.match(schema, /Hoofdsponsor/);

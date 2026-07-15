@@ -259,7 +259,7 @@ function publicAssetUrl(?string $path): ?string
     return rtrim(getenv('APP_URL') ?: '', '/') . '/' . ltrim($path, '/');
 }
 
-function sendTransactionalEmail(PDO $db, int $tournamentId, ?int $userId, string $messageType, string $recipient, string $subject, string $html, array $metadata): string
+function sendTransactionalEmail(PDO $db, ?int $tournamentId, ?int $userId, string $messageType, string $recipient, string $subject, string $html, array $metadata): string
 {
     $apiKey = trim((string)getenv('BREVO_API_KEY'));
     $status = 'queued';
@@ -387,6 +387,10 @@ try {
         if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !in_array($role, ['administrator', 'host'], true)) {
             Http::json(['error' => 'Naam, geldig e-mailadres en geldige rol zijn verplicht.'], 422);
         }
+        $exists = $db->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+        $exists->execute([$email]);
+        if ($exists->fetch()) Http::json(['error' => 'Er bestaat al een account met dit e-mailadres.'], 409);
+        $db->prepare('DELETE FROM staff_invitations WHERE email = ? AND accepted_at IS NULL')->execute([$email]);
         $token = bin2hex(random_bytes(32));
         $expiresAt = (new DateTimeImmutable('+24 hours'))->format('Y-m-d H:i:s');
         $db->prepare(
@@ -395,9 +399,36 @@ try {
         $invitationId = (int)$db->lastInsertId();
         Audit::record($db, 'staff.invited', 'staff_invitation', $invitationId, $user['id'], null, ['email' => $email, 'role' => $role]);
         $frontend = rtrim(getenv('FRONTEND_URL') ?: 'http://localhost:3000', '/');
-        $response = ['invitation_id' => $invitationId, 'expires_at' => $expiresAt];
-        if (getenv('APP_ENV') === 'local') $response['accept_url'] = "{$frontend}/tournament/beheer/uitnodiging?token={$token}";
+        $frontendBase = trim(getenv('NEXT_PUBLIC_BASE_PATH') ?: getenv('APP_BASE_PATH') ?: '', '/');
+        $acceptUrl = $frontend . ($frontendBase ? '/' . $frontendBase : '') . '/beheer/uitnodiging?token=' . $token;
+        $mailStatus = sendTransactionalEmail($db, null, (int)$user['id'], 'staff_invitation', $email, 'Uitnodiging voor Matchpoint Tournament', '<h1>Je bent uitgenodigd</h1><p>Hallo ' . htmlspecialchars($name) . ', maak je Host-account aan via <a href="' . htmlspecialchars($acceptUrl) . '">deze veilige link</a>. De link is 24 uur geldig.</p>', ['invitation_id' => $invitationId, 'accept_url' => $acceptUrl]);
+        $response = ['invitation_id' => $invitationId, 'expires_at' => $expiresAt, 'email_status' => $mailStatus];
+        if (getenv('APP_ENV') === 'local') $response['accept_url'] = $acceptUrl;
         Http::json($response, 201);
+    }
+
+    if ($method === 'GET' && $path === '/api/admin/staff') {
+        Auth::requireRole($db, ['administrator']);
+        $users = $db->query("SELECT id, name, email, role, is_active, last_login_at, created_at FROM users ORDER BY role, name")->fetchAll();
+        $invitations = $db->query("SELECT id, name, email, role, expires_at, created_at FROM staff_invitations WHERE accepted_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC")->fetchAll();
+        Http::json(['users' => $users, 'invitations' => $invitations]);
+    }
+
+    if ($method === 'PATCH' && preg_match('#^/api/admin/staff/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $staffId = (int)$matches[1];
+        $data = Http::input();
+        $isActive = (bool)($data['is_active'] ?? false);
+        $target = $db->prepare('SELECT id, role FROM users WHERE id = ? LIMIT 1');
+        $target->execute([$staffId]);
+        $staff = $target->fetch();
+        if (!$staff) Http::json(['error' => 'Account niet gevonden.'], 404);
+        if ($staff['role'] !== 'host') Http::json(['error' => 'Administrator-accounts kunnen hier niet worden gewijzigd.'], 403);
+        $db->prepare('UPDATE users SET is_active = ? WHERE id = ?')->execute([$isActive ? 1 : 0, $staffId]);
+        if (!$isActive) $db->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$staffId]);
+        Audit::record($db, 'staff.status_changed', 'user', $staffId, $user['id'], null, ['is_active' => $isActive]);
+        Http::json(['updated' => true]);
     }
 
     if ($method === 'POST' && $path === '/api/auth/invitations/accept') {

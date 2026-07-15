@@ -48,6 +48,7 @@ Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 - ✅ Mollie checkout-aanmaak en webhookbasis met auditregistratie.
 - ✅ Staff-login met beveiligde sessies, CSRF-controle en rollen.
 - ✅ Staff-uitnodigingen voor Administrator en Host.
+- ✅ Host-accountbeheer met uitnodigen, activeren, deactiveren en sessies intrekken.
 - ✅ Rate limiting op gevoelige publieke acties.
 
 ### Nog nodig

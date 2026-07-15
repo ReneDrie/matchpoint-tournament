@@ -153,6 +153,8 @@ export type StaffUser = {
   role: "administrator" | "host";
   csrf_token: string;
 };
+export type StaffAccount = { id: number; name: string; email: string; role: "administrator" | "host"; is_active: number; last_login_at: string | null; created_at: string };
+export type StaffInvitation = { id: number; name: string; email: string; role: "administrator" | "host"; expires_at: string; created_at: string };
 
 export type Player = {
   id: number;

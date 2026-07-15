@@ -6,7 +6,7 @@ import { API_URL } from "../shared/config";
 import type { Court, StaffUser, TournamentSettings } from "../shared/types";
 
 type SettingsForm = Omit<TournamentSettings, "registration_price" | "schedule_defaults" | "presentation_defaults" | "venue" | "confirmed_players" | "registration_available" | "active_courts">;
-export type SettingsTab = "general" | "planning" | "presentation" | "courts";
+export type SettingsTab = "general" | "planning" | "presentation" | "courts" | "staff";
 
 function toInputDate(value: string) {
   return value.replace(" ", "T").slice(0, 16);
