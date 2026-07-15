@@ -57,8 +57,10 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(registrationHooks, /doubles_rating/);
   assert.match(settingsHooks, /\/api\/admin\/tournaments/);
   assert.match(settingsHooks, /\/courts/);
+  assert.match(settingsHooks, /surface/);
   assert.match(router, /tournament\.settings_updated/);
   assert.match(router, /court\.created/);
+  assert.match(router, /UPDATE courts SET name = \?, surface = \?/);
   assert.match(router, /minimaal 18 jaar/);
   assert.match(router, /payment_reservation_expires_at/);
   assert.match(schema, /CREATE TABLE tournaments/);

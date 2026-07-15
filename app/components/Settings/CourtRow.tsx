@@ -7,9 +7,9 @@ export function CourtRow({ court, user, saved, onError }: { court: Court; user: 
   const editor = useCourtEditor({ court, user, saved, onError });
   return <div className={`court-setting-row ${editor.isActive ? "" : "inactive"}`}>
     <span className="court-order">{court.sort_order}</span>
-    <label>Baannaam<input value={editor.name} onChange={event => editor.setName(event.target.value)} /></label>
-    <label>Ondergrond (optioneel)<input value={editor.surface} onChange={event => editor.setSurface(event.target.value)} placeholder="Bijv. gravel" /></label>
-    <label className="court-active"><input type="checkbox" checked={editor.isActive} onChange={event => editor.setIsActive(event.target.checked)} /> Actief</label>
-    <div className="court-actions"><button className="secondary" type="button" onClick={editor.remove} disabled={editor.busy}>Verwijderen</button><button className="primary" type="button" onClick={editor.save} disabled={!editor.name.trim() || editor.busy}>{editor.busy ? "Opslaan…" : "Opslaan"}</button></div>
+    <label>Baannaam<input value={editor.name} onChange={event => editor.updateName(event.target.value)} onBlur={() => void editor.save()} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} /></label>
+    <label>Ondergrond (optioneel)<input value={editor.surface} onChange={event => editor.updateSurface(event.target.value)} onBlur={() => void editor.save()} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} placeholder="Bijv. gravel" /></label>
+    <label className="court-active"><input type="checkbox" checked={editor.isActive} onChange={event => { const value = event.target.checked; editor.updateIsActive(value); void editor.save({ isActive: value }); }} /> Actief</label>
+    <div className="court-actions"><span className={`court-save-state ${editor.busy ? "saving" : editor.justSaved ? "saved" : editor.dirty ? "dirty" : ""}`} aria-live="polite">{editor.busy ? "Opslaan…" : editor.justSaved ? "✓ Automatisch opgeslagen" : editor.dirty ? "Wordt opgeslagen bij verlaten" : "Opgeslagen"}</span><button className="secondary" type="button" onClick={editor.remove} disabled={editor.busy}>Verwijderen</button></div>
   </div>;
 }

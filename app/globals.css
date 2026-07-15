@@ -113,6 +113,7 @@ td{padding:16px 22px;font-size:13px}
 .court-setting-list{gap:12px;margin-top:22px}.court-setting-row{padding:16px;gap:14px}
 .court-order{width:36px;height:48px;font-size:12px}.court-active{height:48px;font-size:12px}.court-actions button{height:48px}
 .add-court-form{gap:14px;margin-top:21px;padding-top:21px}.add-court-form strong{font-size:14px}.add-court-form span{font-size:11px}.add-court-form button{height:48px}
+.court-actions{align-items:center}.court-save-state{color:#8d858e;font-size:11px;font-weight:650;white-space:nowrap}.court-save-state.saving{color:var(--purple)}.court-save-state.saved{color:var(--green)}.court-save-state.dirty{color:#a96b00}
 
 @media(max-width:1050px){.settings-tabs{grid-template-columns:repeat(2,1fr)}.settings-single{max-width:none}}
 @media(max-width:760px){:root{--sidebar:0px}.content{padding:20px}.topbar{padding:20px;height:92px}.topbar h1{font-size:24px}.settings-tabs{grid-template-columns:1fr 1fr}.registration-card{padding:30px 25px}}
