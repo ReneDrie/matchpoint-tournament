@@ -64,7 +64,7 @@ docker compose exec api php bin/create-admin.php email@example.nl "Naam" "een-st
 
 Existing prototype databases can be upgraded by applying the SQL files in `backend/database/migrations` in numeric order. New databases are initialized directly from `backend/database/schema.sql`.
 
-See `docs/IMPLEMENTATION_PLAN.md` for the architecture, decisions and phased roadmap.
+See `docs/IMPLEMENTATION_STATUS.md` for the current progress and next implementation step. `docs/IMPLEMENTATION_PLAN.md` contains the architecture, decisions and complete phased roadmap.
 
 ## Production direction
 

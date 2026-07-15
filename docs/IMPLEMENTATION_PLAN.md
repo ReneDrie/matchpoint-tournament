@@ -1,5 +1,7 @@
 # Matchpoint Tournament — implementation plan
 
+De actuele voortgang, openstaande onderdelen en eerstvolgende bouwstap staan in [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md). Dit plan beschrijft de gewenste eindarchitectuur; het statusdocument is leidend voor waar we nu verdergaan.
+
 ## Product decisions used for the first build
 
 - **Payments:** Mollie hosted checkout, starting with iDEAL, with a configurable fee (initially €12.50). A 15-minute checkout reservation protects the configurable 32/64/128/256 capacity. Only the verified Mollie webhook confirms a player.

@@ -1,0 +1,166 @@
+# Matchpoint Tournament — implementatiestatus
+
+Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na iedere afgeronde feature bij, samen met de relevante tests en database-migraties.
+
+**Laatst bijgewerkt:** 15 juli 2026  
+**Huidige hoofdbranch:** `main`  
+**Laatste afgeronde feature:** betrouwbare automatische opslag van baaninstellingen (`d0ea257`)
+
+## Statuslegenda
+
+- ✅ Afgerond en lokaal geverifieerd
+- 🟡 Gedeeltelijk aanwezig of nog niet productieklaar
+- ⬜ Nog niet gestart
+
+## Huidige volgende stap
+
+### Handmatige loting — fase 3A
+
+De eerstvolgende aanbevolen bouwstap is een Administrator-editor voor de handmatige loting:
+
+- 32, 64, 128 of 256 posities op basis van de toernooi-instellingen.
+- Per positie één betaalde deelnemer of expliciete bye selecteren.
+- Dezelfde speler kan niet tweemaal worden geplaatst.
+- Spelersnummers worden afgeleid van de positie in het schema.
+- Concept opslaan zonder de loting direct te publiceren.
+- Validatie vóór publiceren.
+- Na publiceren worden de wedstrijden voor ronde 1 aangemaakt.
+
+Deze stap kan beginnen: deelnemers, capaciteit, rollen, databasebasis en toernooi-instellingen zijn aanwezig.
+
+## 0. Technische basis en beheerinterface
+
+- ✅ Lokale Docker-omgeving met PHP 8.3, Apache en MySQL 8.
+- ✅ React/Vinext-frontend met Matchpoint-huisstijl.
+- ✅ Rechtstreeks bereikbare URL-routes voor alle huidige schermen.
+- ✅ Persistente beheerlayout zonder witte paginawissel.
+- ✅ Componenten per domein met componentgebonden hookbestanden.
+- ✅ Grotere typografie, ruimere interface en responsive basis.
+- ✅ Administrator- en Host-autorisatie in frontend en API.
+- ✅ GitHub-repository en doorlopende commits op `main`.
+
+## 1. Foundation en betaalde inschrijving
+
+### Afgerond
+
+- ✅ Openbare inschrijfformulier met naam, e-mail, telefoon en geboortedatum.
+- ✅ KNLTB-nummer of zowel enkel- als dubbelsterkte verplicht.
+- ✅ Opkomstnummer als verplichte vrije tekst.
+- ✅ Controle dat een speler op de toernooidatum minimaal 18 jaar is.
+- ✅ Versievelden voor privacy- en voorwaardenacceptatie.
+- ✅ Configurabele prijs, capaciteit, datum, locatie en inschrijfdeadline.
+- ✅ Tijdelijke reservering van een plek tijdens de betaalflow.
+- ✅ Mollie checkout-aanmaak en webhookbasis met auditregistratie.
+- ✅ Staff-login met beveiligde sessies, CSRF-controle en rollen.
+- ✅ Staff-uitnodigingen voor Administrator en Host.
+- ✅ Rate limiting op gevoelige publieke acties.
+
+### Nog nodig
+
+- 🟡 Mollie-flow met echte test- en productiekeys volledig doorlopen.
+- 🟡 Bevestigingspagina na betaling afronden.
+- 🟡 Bevestigingsmail via Brevo versturen.
+- 🟡 Wachtlijstformulier, beheer en uitnodigingsmail implementeren.
+- 🟡 Beveiligde e-maillinks voor spelers implementeren.
+- 🟡 Spotify-zoekresultaat suggereren en opslaan.
+- ⬜ Wachtwoord vergeten/herstellen voor staff.
+
+## 2. CRM en toernooibeheer
+
+### Afgerond
+
+- ✅ Deelnemersoverzicht met zoeken en statusfilter.
+- ✅ Deelnemers handmatig toevoegen zonder betaalflow.
+- ✅ Deelnemers als betaald sponsorpakket-speler toevoegen.
+- ✅ Deelnemersgegevens en deelnamestatus wijzigen.
+- ✅ Spelers aan sponsors koppelen.
+- ✅ Deelnemers in- en uitchecken voor Administrator en Host.
+- ✅ CSV-export van deelnemers.
+- ✅ Sponsor toevoegen en wijzigen.
+- ✅ Hoofdsponsor- en Subsponsor-niveaus.
+- ✅ Toernooi-instellingen in tabs voor Algemeen, Planning, Presentatie en Banen.
+- ✅ Baan toevoegen, wijzigen, activeren, automatisch opslaan en verwijderen.
+- ✅ Auditregistratie voor belangrijke mutaties in de API.
+
+### Nog nodig
+
+- 🟡 Een annulering of terugbetaling is als status wijzigbaar, maar nog niet gekoppeld aan een echte Mollie-refund.
+- 🟡 Sponsorlogo uploaden en tonen.
+- 🟡 Wachtlijst beheren vanuit het dashboard.
+- 🟡 Handmatige e-mail aan geselecteerde of alle deelnemers.
+- 🟡 Auditlog zichtbaar maken voor Administrators.
+- ⬜ Excel-export naast CSV.
+
+## 3. Loting, wedstrijden en planning
+
+### Aanwezig als basis
+
+- 🟡 Database-entiteiten voor wedstrijden, banen en planning bestaan.
+- 🟡 Configureerbare wedstrijdduur, kwartfinaleduur en pauzecadans bestaan.
+- 🟡 Placeholderroutes voor Wedstrijden en Planning bestaan.
+
+### Nog nodig
+
+- ⬜ Handmatige lotingseditor met byes en dubbele-spelercontrole.
+- ⬜ Concept-, validatie- en publicatiestatus voor de loting.
+- ⬜ Automatische aanmaak van acht knock-outrondes voor 256 spelers.
+- ⬜ Eén-tap winnaarselectie met bevestiging.
+- ⬜ Winnaar automatisch naar de volgende ronde doorzetten.
+- ⬜ Correctie/undo door Host en Administrator.
+- ⬜ Snelle mobiele hostweergave.
+- ⬜ “Plan nu”-flow per helft van een ronde en per baan.
+- ⬜ Sleepbare wedstrijden, pauzes en vrije programmaonderdelen.
+- ⬜ Automatische pauzesuggesties en conflictcontrole.
+
+## 4. Presentatiemodus
+
+### Aanwezig als basis
+
+- 🟡 Openbare live-feedendpoint voor slides en komende wedstrijden.
+- 🟡 Databasemodel voor custom-, image-, sponsor- en dynamische slides.
+- 🟡 Beheerplaceholder en schermpreview.
+
+### Nog nodig
+
+- ⬜ Slide-editor met volgorde en actieve/inactieve status.
+- ⬜ Fullscreen JPG, PNG en WebP upload met `object-fit: contain`.
+- ⬜ Sponsor- en customslides.
+- ⬜ Komende-wedstrijden- en ronde-aankondigingsslides.
+- ⬜ Instelbare duur per slide.
+- ⬜ Publieke fullscreen presentatieroute.
+- ⬜ Automatisch verversen, offline fallback en “laatst bijgewerkt”.
+
+## 5. Productieklaar maken
+
+### Aanwezig als basis
+
+- ✅ Frontend build-, lint- en route-regressietests.
+- ✅ PHP-syntaxcontrole en lokaal geteste API-mutaties.
+- ✅ Database-migraties en TransIP-richting gedocumenteerd.
+
+### Nog nodig
+
+- ⬜ Geautomatiseerde integratietests voor betaling, autorisatie en bracketprogressie.
+- ⬜ Back-up- en herstelprocedure.
+- ⬜ Privacyretentie en anonimisatietaak activeren.
+- ⬜ Securityreview.
+- ⬜ Draaiboek voor de wedstrijddag.
+- ⬜ Staging onder `/tournament` op TransIP.
+- ⬜ Productieconfiguratie voor Mollie, Brevo, HTTPS en database.
+
+## Nog aan te leveren voor productie
+
+- Juridische entiteit en Mollie-accountgegevens.
+- Definitieve privacyverklaring en toernooivoorwaarden.
+- Brevo API-key en geverifieerde afzender/domein.
+- TransIP databasegegevens en stagingomgeving.
+
+## Werkwijze voor volgende stappen
+
+Na iedere afgeronde implementatiestap:
+
+1. Werk de betreffende checklist hierboven bij.
+2. Zet de nieuwe eerstvolgende stap bovenaan.
+3. Noteer relevante migraties of productieafhankelijkheden.
+4. Draai build, lint en tests.
+5. Commit en push de wijziging samen met de bijgewerkte status.
