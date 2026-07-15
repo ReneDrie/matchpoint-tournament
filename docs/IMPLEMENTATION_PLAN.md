@@ -27,7 +27,7 @@ De actuele voortgang, openstaande onderdelen en eerstvolgende bouwstap staan in 
 
 - Docker environment, schema/migrations, configuration and deployment notes.
 - Public form, server validation, capacity check, Mollie checkout and confirmation page.
-- Webhook reconciliation, duplicate-payment protection and registration e-mail.
+- Webhook reconciliation, duplicate-payment protection and registration e-mail. **Implemented and verified in Mollie test mode; Brevo production sender remains.**
 - Staff login, password reset, CSRF protection, rate limiting and role middleware.
 
 ### 2. CRM operations

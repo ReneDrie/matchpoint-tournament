@@ -39,6 +39,12 @@ test("server-renders the public presentation directly", async () => {
   assert.match(await response.text(), /Live presentatie laden/i);
 });
 
+test("server-renders the payment confirmation directly", async () => {
+  const response = await render("/inschrijven/bevestiging?token=test");
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /BETALING CONTROLEREN/i);
+});
+
 test("keeps registration configuration and validation wired to the API", async () => {
   const [appHooks, registrationHooks, waitlistHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, modalHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
@@ -107,6 +113,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(router, /UPDATE courts SET name = \?, surface = \?/);
   assert.match(router, /minimaal 18 jaar/);
   assert.match(router, /payment_reservation_expires_at/);
+  assert.match(router, /reconcileMolliePayment/);
+  assert.match(router, /payment_confirmation/);
   assert.match(schema, /CREATE TABLE tournaments/);
   assert.match(schema, /CREATE TABLE user_sessions/);
   assert.match(schema, /Hoofdsponsor/);

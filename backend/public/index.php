@@ -259,7 +259,7 @@ function publicAssetUrl(?string $path): ?string
     return rtrim(getenv('APP_URL') ?: '', '/') . '/' . ltrim($path, '/');
 }
 
-function sendTransactionalEmail(PDO $db, int $tournamentId, int $userId, string $recipient, string $subject, string $html, array $metadata): string
+function sendTransactionalEmail(PDO $db, int $tournamentId, ?int $userId, string $messageType, string $recipient, string $subject, string $html, array $metadata): string
 {
     $apiKey = trim((string)getenv('BREVO_API_KEY'));
     $status = 'queued';
@@ -277,9 +277,26 @@ function sendTransactionalEmail(PDO $db, int $tournamentId, int $userId, string 
         if (is_array($result) && isset($result['messageId'])) { $status = 'sent'; $providerId = (string)$result['messageId']; }
         else $status = 'failed';
     }
-    $db->prepare('INSERT INTO email_messages (tournament_id, created_by, message_type, recipient_email, subject, provider_message_id, status, metadata_json, sent_at) VALUES (?, ?, \'waitlist_invitation\', ?, ?, ?, ?, ?, ?)')
-        ->execute([$tournamentId, $userId, $recipient, $subject, $providerId, $status, json_encode($metadata, JSON_UNESCAPED_SLASHES), $status === 'sent' ? date('Y-m-d H:i:s') : null]);
+    $db->prepare('INSERT INTO email_messages (tournament_id, created_by, message_type, recipient_email, subject, provider_message_id, status, metadata_json, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        ->execute([$tournamentId, $userId, $messageType, $recipient, $subject, $providerId, $status, json_encode($metadata, JSON_UNESCAPED_SLASHES), $status === 'sent' ? date('Y-m-d H:i:s') : null]);
     return $status;
+}
+
+function reconcileMolliePayment(PDO $db, object $payment, array $stored): void
+{
+    $wasPaid = $stored['status'] === 'paid';
+    $db->beginTransaction();
+    $db->prepare("UPDATE payments SET status = ?, paid_at = IF(? = 'paid', COALESCE(paid_at, NOW()), paid_at), updated_at = NOW() WHERE id = ?")
+        ->execute([$payment->status, $payment->status, (int)$stored['id']]);
+    if ($payment->isPaid() && !$wasPaid) {
+        $db->prepare("UPDATE players SET registration_status = 'confirmed', payment_reservation_expires_at = NULL WHERE id = ?")->execute([(int)$stored['player_id']]);
+        Auth::issuePlayerToken($db, (int)$stored['player_id']);
+        $subject = 'Je inschrijving voor ' . $stored['tournament_name'] . ' is bevestigd';
+        $html = '<h1>Je bent ingeschreven</h1><p>Hallo ' . htmlspecialchars($stored['player_name']) . ', je betaling is ontvangen en je inschrijving voor ' . htmlspecialchars($stored['tournament_name']) . ' is bevestigd.</p>';
+        sendTransactionalEmail($db, (int)$stored['tournament_id'], null, 'payment_confirmation', $stored['email'], $subject, $html, ['payment_id' => (int)$stored['id']]);
+        Audit::record($db, 'payment.paid', 'payment', (int)$stored['id'], null, (int)$stored['tournament_id'], ['provider_payment_id' => $payment->id]);
+    }
+    $db->commit();
 }
 
 function presentationSlidesPayload(PDO $db, int $tournamentId, bool $activeOnly = false): array
@@ -1489,7 +1506,7 @@ try {
         $inviteUrl = $frontend . ($base ? '/' . $base : '') . '/inschrijven?uitnodiging=' . $token;
         $subject = 'Er is een plek vrij voor ' . $entry['tournament_name'];
         $html = '<h1>Je kunt je inschrijven</h1><p>Hallo ' . htmlspecialchars($entry['name']) . ', er is een plek vrijgekomen voor ' . htmlspecialchars($entry['tournament_name']) . '.</p><p><a href="' . htmlspecialchars($inviteUrl) . '">Schrijf je binnen 48 uur in</a></p>';
-        $mailStatus = sendTransactionalEmail($db, (int)$entry['tournament_id'], (int)$user['id'], $entry['email'], $subject, $html, ['waitlist_entry_id' => $entryId, 'invite_url' => $inviteUrl, 'expires_at' => $expiresAt]);
+        $mailStatus = sendTransactionalEmail($db, (int)$entry['tournament_id'], (int)$user['id'], 'waitlist_invitation', $entry['email'], $subject, $html, ['waitlist_entry_id' => $entryId, 'invite_url' => $inviteUrl, 'expires_at' => $expiresAt]);
         Audit::record($db, 'waitlist.invited', 'waitlist_entry', $entryId, $user['id'], (int)$entry['tournament_id'], ['email_status' => $mailStatus]);
         $db->commit();
         $response = ['invited' => true, 'expires_at' => $expiresAt, 'email_status' => $mailStatus];
@@ -1556,18 +1573,35 @@ try {
         $amount = number_format(((int)$tournament['registration_price_cents']) / 100, 2, '.', '');
         $appUrl = rtrim(getenv('APP_URL') ?: 'http://localhost:8080', '/');
         $frontendUrl = rtrim(getenv('FRONTEND_URL') ?: 'http://localhost:3000', '/');
-        $payment = $mollie->payments->create([
+        $frontendBase = trim(getenv('NEXT_PUBLIC_BASE_PATH') ?: getenv('APP_BASE_PATH') ?: '', '/');
+        $statusToken = Auth::issuePlayerToken($db, $playerId, 'payment_retry', '+24 hours');
+        $paymentParameters = [
             'amount' => ['currency' => $tournament['currency'], 'value' => $amount],
             'description' => "{$tournament['name']} inschrijving #{$playerId}",
-            'redirectUrl' => "{$frontendUrl}/tournament/inschrijving/bevestiging?player={$playerId}",
-            'webhookUrl' => "{$appUrl}/api/payments/mollie-webhook",
+            'redirectUrl' => $frontendUrl . ($frontendBase ? '/' . $frontendBase : '') . '/inschrijven/bevestiging?token=' . $statusToken,
             'metadata' => ['player_id' => $playerId, 'tournament_id' => (int)$tournament['id']],
-        ]);
+        ];
+        if (getenv('APP_ENV') !== 'local') $paymentParameters['webhookUrl'] = "{$appUrl}/api/payments/mollie-webhook";
+        $payment = $mollie->payments->create($paymentParameters);
         $db->prepare("INSERT INTO payments (player_id, provider, provider_payment_id, amount_cents, currency, status) VALUES (?, 'mollie', ?, ?, ?, ?)")
             ->execute([$playerId, $payment->id, (int)$tournament['registration_price_cents'], $tournament['currency'], $payment->status]);
         Audit::record($db, 'registration.started', 'player', $playerId, null, (int)$tournament['id']);
         $db->commit();
-        Http::json(['player_id' => $playerId, 'checkout_url' => $payment->getCheckoutUrl()], 201);
+        Http::json(['checkout_url' => $payment->getCheckoutUrl()], 201);
+    }
+
+    if ($method === 'GET' && $path === '/api/payments/status') {
+        $token = (string)($_GET['token'] ?? '');
+        if (strlen($token) !== 64) Http::json(['error' => 'Ongeldige betaallink.'], 422);
+        $statement = $db->prepare("SELECT py.id, py.player_id, py.provider_payment_id, py.status, py.amount_cents, py.currency, p.name AS player_name, p.email, p.registration_status, p.tournament_id, t.name AS tournament_name FROM player_access_tokens pat JOIN players p ON p.id = pat.player_id JOIN payments py ON py.player_id = p.id JOIN tournaments t ON t.id = p.tournament_id WHERE pat.token_hash = ? AND pat.purpose = 'payment_retry' AND pat.expires_at > NOW() ORDER BY py.id DESC LIMIT 1");
+        $statement->execute([hash('sha256', $token)]);
+        $stored = $statement->fetch();
+        if (!$stored) Http::json(['error' => 'Deze betaallink is ongeldig of verlopen.'], 410);
+        $mollie = new MollieApiClient();
+        $mollie->setApiKey(getenv('MOLLIE_API_KEY') ?: '');
+        $payment = $mollie->payments->get($stored['provider_payment_id']);
+        reconcileMolliePayment($db, $payment, $stored);
+        Http::json(['payment' => ['status' => $payment->status, 'registration_status' => $payment->isPaid() ? 'confirmed' : $stored['registration_status'], 'player_name' => $stored['player_name'], 'tournament_name' => $stored['tournament_name'], 'amount' => '€ ' . number_format(((int)$stored['amount_cents']) / 100, 2, ',', '.')]]);
     }
 
     if ($method === 'POST' && $path === '/api/payments/mollie-webhook') {
@@ -1576,20 +1610,11 @@ try {
         $mollie = new MollieApiClient();
         $mollie->setApiKey(getenv('MOLLIE_API_KEY') ?: '');
         $payment = $mollie->payments->get($paymentId);
-        $statement = $db->prepare('SELECT py.id, py.player_id, py.status, p.tournament_id FROM payments py JOIN players p ON p.id = py.player_id WHERE py.provider_payment_id = ?');
+        $statement = $db->prepare('SELECT py.id, py.player_id, py.status, p.tournament_id, p.name AS player_name, p.email, t.name AS tournament_name FROM payments py JOIN players p ON p.id = py.player_id JOIN tournaments t ON t.id = p.tournament_id WHERE py.provider_payment_id = ?');
         $statement->execute([$paymentId]);
         $stored = $statement->fetch();
         if (!$stored) Http::json(['received' => true]);
-        $db->beginTransaction();
-        $db->prepare("UPDATE payments SET status = ?, paid_at = IF(? = 'paid', COALESCE(paid_at, NOW()), paid_at), updated_at = NOW() WHERE id = ?")
-            ->execute([$payment->status, $payment->status, (int)$stored['id']]);
-        if ($payment->isPaid() && $stored['status'] !== 'paid') {
-            $db->prepare("UPDATE players SET registration_status = 'confirmed', payment_reservation_expires_at = NULL WHERE id = ?")
-                ->execute([(int)$stored['player_id']]);
-            Auth::issuePlayerToken($db, (int)$stored['player_id']);
-            Audit::record($db, 'payment.paid', 'payment', (int)$stored['id'], null, (int)$stored['tournament_id'], ['provider_payment_id' => $paymentId]);
-        }
-        $db->commit();
+        reconcileMolliePayment($db, $payment, $stored);
         Http::json(['received' => true]);
     }
 

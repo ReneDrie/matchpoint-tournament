@@ -16,6 +16,7 @@ Use the navigation to preview the dashboard, player CRM, one-tap score entry, sc
 The application uses normal, directly addressable routes:
 
 - `/` and `/inschrijven` — public registration
+- `/inschrijven/bevestiging` — veilige betaalstatus en bevestiging
 - `/beheer` — staff overview
 - `/beheer/deelnemers`
 - `/beheer/loting` — manual draw editor for Administrators
@@ -50,6 +51,7 @@ The implemented foundation endpoints are:
 - `POST /api/waitlist`
 - `GET /api/waitlist/invitation?token={token}`
 - `POST /api/payments/mollie-webhook`
+- `GET /api/payments/status?token={token}`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
