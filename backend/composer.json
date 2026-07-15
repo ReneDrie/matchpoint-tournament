@@ -1,0 +1,12 @@
+{
+  "name": "matchpoint/tournament-api",
+  "description": "Matchpoint Tournament PHP API",
+  "type": "project",
+  "require": {
+    "php": "^8.2",
+    "mollie/mollie-api-php": "^3.0"
+  },
+  "autoload": {
+    "psr-4": { "Matchpoint\\": "src/" }
+  }
+}
