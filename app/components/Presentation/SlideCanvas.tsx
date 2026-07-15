@@ -12,7 +12,7 @@ export function SlideCanvas({ slide, live, preview = false }: { slide: Presentat
   const featured = live?.featured_round;
   return <div className={`slide-canvas slide-${type} ${preview ? "preview" : ""}`}>
     {type === "image" && slide.image_url ? <img src={slide.image_url} alt={slide.title ?? "Presentatieafbeelding"} /> : <>
-      <header><Brand /><span>LIVE · MATCHPOINT TOURNAMENT</span></header>
+      <header><Brand /></header>
       <main>
         {type === "custom" && <div className="slide-message"><p>{slide.content_json?.subtitle ?? "MATCHPOINT TOURNAMENT"}</p><h1>{slide.title}</h1>{slide.content_json?.body && <span>{slide.content_json.body}</span>}</div>}
         {type === "sponsor" && <div className="slide-sponsor-content"><p>MEDE MOGELIJK GEMAAKT DOOR</p>{slide.sponsor_logo_url ? <img src={slide.sponsor_logo_url} alt={slide.sponsor_name ?? "Sponsor"} /> : <strong>{slide.sponsor_name ?? "Sponsor"}</strong>}<span>Bedankt voor jullie support</span></div>}
@@ -20,7 +20,6 @@ export function SlideCanvas({ slide, live, preview = false }: { slide: Presentat
         {type === "round_announcement" && <div className="slide-round"><p>HET TOERNOOI GAAT DOOR</p><span>RONDE</span><strong>{slide.content_json?.round_number ?? "–"}</strong><h1>{slide.title || `Start ronde ${slide.content_json?.round_number ?? ""}`}</h1></div>}
         {type === "featured_round" && <div className="slide-matches featured"><p>{featured ? roundLabel(featured.round_number, featured.round_count).toUpperCase() : "UITGELICHTE RONDE"}</p><h1>{slide.title || (featured ? roundLabel(featured.round_number, featured.round_count) : "Binnenkort bekend")}</h1><MatchRows matches={featured?.matches ?? []} /></div>}
       </main>
-      <footer><span>TVA ARKEL</span><b>#MATCHPOINTTOURNAMENT</b></footer>
     </>}
   </div>;
 }
