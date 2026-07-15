@@ -1,9 +1,11 @@
 "use client";
 
 import type { Sponsor, SponsorTier, StaffUser } from "../shared/types";
+import { useModalDismiss } from "../Modal/Modal.hooks";
 import { useSponsorForm } from "./Sponsors.hooks";
 
 export function SponsorModal({ user, tiers, sponsor, close, saved }: { user: StaffUser; tiers: SponsorTier[]; sponsor?: Sponsor; close: () => void; saved: () => Promise<void> }) {
+  useModalDismiss(close);
   const form = useSponsorForm({ user, tiers, sponsor, close, saved });
   return <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}><form className="modal-card sponsor-modal" role="dialog" aria-modal="true" aria-labelledby="sponsor-modal-title" onSubmit={form.submit}><div className="modal-header"><div><p>{sponsor ? "PARTNER BEHEREN" : "NIEUWE PARTNER"}</p><h2 id="sponsor-modal-title">{sponsor ? "Sponsor wijzigen" : "Sponsor toevoegen"}</h2></div><button type="button" className="modal-close" onClick={close} aria-label="Sluiten">×</button></div><div className="modal-grid"><label>Naam<input autoFocus required value={form.name} onChange={event => form.setName(event.target.value)} /></label><label>Niveau<select required value={form.tierId} onChange={event => form.setTierId(event.target.value)}>{tiers.map(tier => <option key={tier.id} value={tier.id}>{tier.name}</option>)}</select></label><label className="modal-wide">Website (optioneel)<input type="url" value={form.website} onChange={event => form.setWebsite(event.target.value)} placeholder="https://" /></label>{sponsor && <div className="modal-wide sponsor-switches"><label><input type="checkbox" checked={form.isActive} onChange={event => form.setIsActive(event.target.checked)} /> Sponsor is actief</label><label><input type="checkbox" checked={form.showPublic} onChange={event => form.setShowPublic(event.target.checked)} /> Tonen op openbare pagina’s</label></div>}</div>{form.error && <p className="form-error">{form.error}</p>}<div className="modal-actions"><button type="button" className="secondary" onClick={close}>Annuleren</button><button className="primary" disabled={!form.name || !form.tierId || form.busy}>{form.busy ? "Opslaan…" : sponsor ? "Wijzigingen opslaan" : "Sponsor toevoegen"}</button></div></form></div>;
 }
