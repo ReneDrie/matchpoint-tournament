@@ -10,7 +10,8 @@ export function Registration({ close, tournament }: { close: () => void; tournam
   const registration = useRegistrationForm();
   const { step, setStep, busy, error, form, update, personalComplete, readyToPay, submit } = registration;
   const price = tournament?.registration_price.formatted ?? "€ 12,50";
-  const capacity = tournament?.capacity ?? 256;
+  const capacity = tournament?.capacity ?? 32;
+  const roundCount = Math.log2(capacity);
   const startsAt = tournament ? new Date(tournament.starts_at.replace(" ", "T")) : new Date("2027-06-26T11:00:00");
   const eventDate = startsAt.toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const day = startsAt.toLocaleDateString("nl-NL", { day: "2-digit" });
@@ -22,7 +23,7 @@ export function Registration({ close, tournament }: { close: () => void; tournam
   return <div className="registration-page">
     <header><Brand />{SHOW_ADMIN_SHORTCUT && <button onClick={close}>Beheeromgeving →</button>}</header>
     <main>
-      <div className="registration-intro"><span className="eyebrow">{tournament?.name?.toUpperCase() ?? "MATCHPOINT TOURNAMENT"} · {day} {month} {year}</span><h1>Jouw route naar<br />het <em>matchpoint.</em></h1><p>{capacity} spelers. Acht rondes. Eén winnaar. Op {eventDate} spelen we bij {tournament?.venue.name ?? "TVA Arkel"}.</p><div className="event-facts"><div><b>{day}</b><span>{month}<br />{year}</span></div><div><b>{price}</b><span>PER<br />SPELER</span></div><div><b>{capacity}</b><span>PLEKKEN<br />TOTAAL</span></div></div></div>
+      <div className="registration-intro"><span className="eyebrow">{tournament?.name?.toUpperCase() ?? "MATCHPOINT TOURNAMENT"} · {day} {month} {year}</span><h1>Jouw route naar<br />het <em>matchpoint.</em></h1><p>{capacity} spelers. {roundCount} rondes. Eén winnaar. Op {eventDate} spelen we bij {tournament?.venue.name ?? "TVA Arkel"}.</p><div className="event-facts"><div><b>{day}</b><span>{month}<br />{year}</span></div><div><b>{price}</b><span>PER<br />SPELER</span></div><div><b>{capacity}</b><span>PLEKKEN<br />TOTAAL</span></div></div></div>
       {showWaitlist ? <WaitlistForm /> : registrationClosed ? <div className="registration-card waitlist-card"><p className="kicker">INSCHRIJVING GESLOTEN</p><h2>Inschrijven is niet meer mogelijk</h2><p className="muted">De inschrijfdeadline is verstreken. Neem bij vragen contact op met de organisatie.</p></div> : registration.invitationLoading ? <div className="registration-card waitlist-card">Uitnodiging controleren…</div> : !registration.invitationValid ? <div className="registration-card waitlist-card"><p className="form-error">{error}</p></div> : <form className="registration-card" onSubmit={submit}>
         <div className="steps"><span className="active">1</span><i /><span className={step >= 2 ? "active" : ""}>2</span><i /><span>3</span></div>
         {registration.invitationToken && <p className="invitation-notice">Er is een plek voor je gereserveerd. Rond je inschrijving binnen 48 uur af.</p>}

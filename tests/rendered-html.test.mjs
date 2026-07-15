@@ -51,6 +51,19 @@ test("server-renders the payment confirmation directly", async () => {
   assert.match(await response.text(), /BETALING CONTROLEREN/i);
 });
 
+test("derives participant and round totals from tournament capacity", async () => {
+  const [overview, registration, players] = await Promise.all([
+    readFile(new URL("../app/components/Overview/Overview.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Registration/Registration.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Players/Players.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(overview, /Math\.log2\(capacity\)/);
+  assert.match(overview, /capacity - 1/);
+  assert.match(registration, /\{roundCount\} rondes/);
+  assert.match(players, /VAN \{capacity\} PLEKKEN/);
+  assert.doesNotMatch(`${overview}\n${registration}\n${players}`, /8 rondes|van 255|VAN 256 PLEKKEN/i);
+});
+
 test("keeps registration configuration and validation wired to the API", async () => {
   const [appHooks, registrationHooks, waitlistHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, modalHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),

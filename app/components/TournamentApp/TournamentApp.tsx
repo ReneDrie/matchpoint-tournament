@@ -23,7 +23,7 @@ export function TournamentApp({ initialView }: { initialView: View }) {
 
   const content: Record<Exclude<View, "registration">, ReactNode> = {
     overview: <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />,
-    players: <Players user={app.user} rows={app.playerRows} sponsors={app.sponsors} loading={app.playersLoading} reload={app.reloadCrm} />,
+    players: <Players user={app.user} rows={app.playerRows} sponsors={app.sponsors} capacity={app.tournament?.capacity ?? 32} loading={app.playersLoading} reload={app.reloadCrm} />,
     draw: app.user.role === "administrator" ? <Draw tournamentId={app.tournament?.id ?? 1} user={app.user} /> : <Matches tournamentId={app.tournament?.id ?? 1} user={app.user} />,
     matches: <Matches tournamentId={app.tournament?.id ?? 1} user={app.user} />,
     schedule: <Schedule tournamentId={app.tournament?.id ?? 1} user={app.user} />,
