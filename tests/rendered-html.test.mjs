@@ -46,6 +46,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(page, /\/api\/admin\/players/);
   assert.match(page, /check-in/);
   assert.match(page, /players\/export/);
+  assert.match(page, /window\.history\.pushState/);
+  assert.match(page, /popstate/);
   assert.match(page, /date_of_birth/);
   assert.match(page, /singles_rating/);
   assert.match(page, /doubles_rating/);

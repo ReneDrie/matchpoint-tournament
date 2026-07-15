@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent, MouseEvent, ReactNode } from "react";
 
 type View = "overview" | "players" | "matches" | "schedule" | "sponsors" | "presentation" | "registration";
 
@@ -16,6 +16,12 @@ const viewRoutes: Record<View, string> = {
 };
 const frontendBasePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
 const routeHref = (path: string) => `${frontendBasePath}${path === "/" ? "" : path}` || "/";
+const viewFromPath = (pathname: string): View => {
+  const withoutBase = frontendBasePath && pathname.startsWith(frontendBasePath) ? pathname.slice(frontendBasePath.length) || "/" : pathname;
+  if (withoutBase === "/" || withoutBase === "/inschrijven") return "registration";
+  return (Object.entries(viewRoutes).find(([, path]) => path === withoutBase)?.[0] as View | undefined) ?? "overview";
+};
+type Navigate = (view: View, event?: MouseEvent<HTMLAnchorElement>) => void;
 
 type TournamentConfig = {
   name: string;
@@ -64,20 +70,20 @@ function Brand() {
   return <div className="brand"><img src="/mpt-logo.svg" alt="Matchpoint Tournament" /></div>;
 }
 
-function Sidebar({ view, user, logout }: { view: View; user: StaffUser; logout: () => void }) {
+function Sidebar({ view, user, navigate, logout }: { view: View; user: StaffUser; navigate: Navigate; logout: () => void }) {
   return <aside className="sidebar">
     <Brand />
     <p className="nav-kicker">TOERNOOI BEHEER</p>
-    <nav>{nav.filter(item => user.role === "administrator" || !["sponsors", "presentation"].includes(item.id)).map(item => <a key={item.id} href={routeHref(viewRoutes[item.id])} className={view === item.id ? "active" : ""}><span>{item.icon}</span>{item.label}</a>)}</nav>
+    <nav>{nav.filter(item => user.role === "administrator" || !["sponsors", "presentation"].includes(item.id)).map(item => <a key={item.id} href={routeHref(viewRoutes[item.id])} className={view === item.id ? "active" : ""} onClick={event => navigate(item.id, event)}><span>{item.icon}</span>{item.label}</a>)}</nav>
     <div className="sidebar-spacer" />
-    <a className="public-link" href={routeHref("/")}><span>↗</span> Inschrijfpagina</a>
+    <a className="public-link" href={routeHref("/")} onClick={event => navigate("registration", event)}><span>↗</span> Inschrijfpagina</a>
     <div className="profile"><div className="avatar">{user.name.split(" ").map(part => part[0]).slice(0, 2).join("")}</div><div><strong>{user.name}</strong><small>{user.role === "administrator" ? "Administrator" : "Host"}</small></div><button onClick={logout} title="Uitloggen">↪</button></div>
   </aside>;
 }
 
-function Topbar({ view, user }: { view: View; user: StaffUser }) {
+function Topbar({ view, user, navigate }: { view: View; user: StaffUser; navigate: Navigate }) {
   const labels: Record<View, string> = { overview: `Goedemorgen, ${user.name.split(" ")[0]}`, players: "Deelnemers", matches: "Wedstrijden", schedule: "Court planning", sponsors: "Sponsors", presentation: "Presentatiemodus", registration: "Inschrijving" };
-  return <header className="topbar"><div><p>Matchpoint Tournament · 26 juni 2027</p><h1>{labels[view]}</h1></div><div className="top-actions"><a className="primary small" href={routeHref("/inschrijven")}>＋ Nieuwe inschrijving</a></div></header>;
+  return <header className="topbar"><div><p>Matchpoint Tournament · 26 juni 2027</p><h1>{labels[view]}</h1></div><div className="top-actions"><a className="primary small" href={routeHref("/inschrijven")} onClick={event => navigate("registration", event)}>＋ Nieuwe inschrijving</a></div></header>;
 }
 
 function Stat({ value, label, note, badge, accent }: { value: string; label: string; note: string; badge: string; accent?: boolean }) {
@@ -258,8 +264,15 @@ function Registration({ close, tournament }: { close: () => void; tournament: To
 }
 
 export function TournamentApp({ initialView }: { initialView: View }) {
-  const view = initialView;
-  const setView = (nextView: View) => window.location.assign(routeHref(viewRoutes[nextView]));
+  const [view, setView] = useState<View>(initialView);
+  const navigate: Navigate = (nextView, event) => {
+    if (event && (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
+    event?.preventDefault();
+    const href = routeHref(viewRoutes[nextView]);
+    if (window.location.pathname !== href) window.history.pushState({}, "", href);
+    setView(nextView);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
   const [tournament, setTournament] = useState<TournamentConfig | null>(null);
   const [user, setUser] = useState<StaffUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -284,6 +297,11 @@ export function TournamentApp({ initialView }: { initialView: View }) {
     fetch(`${API_URL}/api/public/tournament`).then(response => response.json()).then(data => setTournament(data.tournament)).catch(() => undefined);
     fetch(`${API_URL}/api/auth/me`, { credentials: "include" }).then(async response => { if (response.ok) setUser((await response.json()).user); }).finally(() => setAuthLoading(false));
   }, []);
+  useEffect(() => {
+    const handlePopState = () => setView(viewFromPath(window.location.pathname));
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
   useEffect(() => { if (user) { void loadPlayers(); void loadSponsors(); } }, [user]);
   async function logout() {
     if (user) await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": user.csrf_token } });
@@ -292,18 +310,18 @@ export function TournamentApp({ initialView }: { initialView: View }) {
     setSponsors([]);
     setSponsorTiers([]);
   }
-  if (view === "registration") return <Registration tournament={tournament} close={() => setView("overview")} />;
+  if (view === "registration") return <Registration tournament={tournament} close={() => navigate("overview")} />;
   if (authLoading) return <div className="login-page"><div className="login-card">Beveiligde omgeving laden…</div></div>;
-  if (!user) return <Login onLogin={setUser} openRegistration={() => setView("registration")} />;
+  if (!user) return <Login onLogin={setUser} openRegistration={() => navigate("registration")} />;
   const content: Record<Exclude<View, "registration">, ReactNode> = {
-    overview: <Overview setView={setView} players={playerRows} />,
+    overview: <Overview setView={navigate} players={playerRows} />,
     players: <Players user={user} rows={playerRows} sponsors={sponsors} loading={playersLoading} reload={reloadCrm} />,
     matches: <Matches />,
     schedule: <Schedule />,
     sponsors: <Sponsors user={user} sponsors={sponsors} tiers={sponsorTiers} players={playerRows} reloadSponsors={loadSponsors} reloadPlayers={loadPlayers} />,
     presentation: <Presentation />,
   };
-  return <div className="app-shell"><Sidebar view={view} user={user} logout={logout} /><main className="main"><Topbar view={view} user={user} /><div className="content">{content[view]}</div></main></div>;
+  return <div className="app-shell"><Sidebar view={view} user={user} navigate={navigate} logout={logout} /><main className="main"><Topbar view={view} user={user} navigate={navigate} /><div className="content">{content[view]}</div></main></div>;
 }
 
 export default function Home() {
