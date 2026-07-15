@@ -13,7 +13,7 @@ CREATE TABLE tournaments (
   currency CHAR(3) NOT NULL DEFAULT 'EUR',
   default_match_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 3,
   final_round_match_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 5,
-  final_round_starts_at TINYINT UNSIGNED NOT NULL DEFAULT 3,
+  final_round_starts_at TINYINT UNSIGNED NOT NULL DEFAULT 6,
   break_every_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 30,
   break_duration_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 5,
   default_slide_seconds SMALLINT UNSIGNED NOT NULL DEFAULT 10,

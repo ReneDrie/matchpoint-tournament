@@ -1,17 +1,54 @@
 import type { MouseEvent } from "react";
 
-export type View = "overview" | "players" | "matches" | "schedule" | "sponsors" | "presentation" | "registration";
+export type View = "overview" | "players" | "matches" | "schedule" | "sponsors" | "presentation" | "settings" | "registration";
 
 export type Navigate = (view: View, event?: MouseEvent<HTMLAnchorElement>) => void;
 
 export type TournamentConfig = {
+  id: number;
   name: string;
+  status: "draft" | "registration" | "live" | "completed" | "archived";
   starts_at: string;
+  registration_deadline_at: string;
+  timezone: string;
   venue: { name: string; address: string };
   capacity: number;
-  registration_price: { formatted: string };
+  registration_price: { amount_cents: number; currency: string; formatted: string };
+  schedule_defaults: {
+    match_minutes: number;
+    quarter_finals_onward_minutes: number;
+    quarter_finals_start_round: number;
+    break_every_minutes: number;
+    break_duration_minutes: number;
+  };
+  presentation_defaults: { slide_seconds: number; upcoming_match_count: number };
   confirmed_players: number;
   registration_available: boolean;
+  active_courts: number;
+};
+
+export type TournamentSettings = TournamentConfig & {
+  venue_name: string;
+  venue_address: string;
+  registration_price_cents: number;
+  default_match_minutes: number;
+  final_round_match_minutes: number;
+  final_round_starts_at: number;
+  break_every_minutes: number;
+  break_duration_minutes: number;
+  default_slide_seconds: number;
+  upcoming_match_count: number;
+  daily_summary_email: string | null;
+  daily_summary_time: string;
+};
+
+export type Court = {
+  id: number;
+  tournament_id: number;
+  name: string;
+  surface: string | null;
+  is_active: number;
+  sort_order: number;
 };
 
 export type StaffUser = {

@@ -22,6 +22,7 @@ The application uses normal, directly addressable routes:
 - `/beheer/planning`
 - `/beheer/sponsors`
 - `/beheer/presentatie`
+- `/beheer/instellingen` — Administrator settings and court management
 
 For the TransIP build, set `NEXT_PUBLIC_BASE_PATH=/tournament`; the same routes are then published below `/tournament`.
 
@@ -50,6 +51,9 @@ The implemented foundation endpoints are:
 - `POST /api/auth/invitations` (Administrator)
 - `POST /api/auth/invitations/accept`
 - `GET /api/admin/tournaments` (staff)
+- `GET/PATCH /api/admin/tournaments/{id}` (Administrator)
+- `GET/POST /api/admin/tournaments/{id}/courts` (Administrator)
+- `PATCH/DELETE /api/admin/courts/{id}` (Administrator)
 - `GET /api/admin/players` (staff)
 
 For local development only, the seeded administrator used for API testing is `info@matchpointtournament.nl` with password `LocalAdmin2027!`. Never reuse this password in production. Create or replace an administrator with:
