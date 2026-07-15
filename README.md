@@ -13,6 +13,18 @@ npm run dev
 
 Use the navigation to preview the dashboard, player CRM, one-tap score entry, scheduling, sponsors and presentation mode. Use **Inschrijfpagina** at the bottom of the navigation to open the public registration flow. The form reads the active edition and price from the PHP API.
 
+The application uses normal, directly addressable routes:
+
+- `/` and `/inschrijven` — public registration
+- `/beheer` — staff overview
+- `/beheer/deelnemers`
+- `/beheer/wedstrijden`
+- `/beheer/planning`
+- `/beheer/sponsors`
+- `/beheer/presentatie`
+
+For the TransIP build, set `NEXT_PUBLIC_BASE_PATH=/tournament`; the same routes are then published below `/tournament`.
+
 ## PHP/MySQL API
 
 Create `.env` from `.env.example`, add a Mollie test API key, then run:

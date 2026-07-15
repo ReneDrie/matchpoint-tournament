@@ -5,6 +5,18 @@ import type { FormEvent, ReactNode } from "react";
 
 type View = "overview" | "players" | "matches" | "schedule" | "sponsors" | "presentation" | "registration";
 
+const viewRoutes: Record<View, string> = {
+  overview: "/beheer",
+  players: "/beheer/deelnemers",
+  matches: "/beheer/wedstrijden",
+  schedule: "/beheer/planning",
+  sponsors: "/beheer/sponsors",
+  presentation: "/beheer/presentatie",
+  registration: "/",
+};
+const frontendBasePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
+const routeHref = (path: string) => `${frontendBasePath}${path === "/" ? "" : path}` || "/";
+
 type TournamentConfig = {
   name: string;
   starts_at: string;
@@ -52,20 +64,20 @@ function Brand() {
   return <div className="brand"><img src="/mpt-logo.svg" alt="Matchpoint Tournament" /></div>;
 }
 
-function Sidebar({ view, setView, user, logout }: { view: View; setView: (v: View) => void; user: StaffUser; logout: () => void }) {
+function Sidebar({ view, user, logout }: { view: View; user: StaffUser; logout: () => void }) {
   return <aside className="sidebar">
     <Brand />
     <p className="nav-kicker">TOERNOOI BEHEER</p>
-    <nav>{nav.filter(item => user.role === "administrator" || !["sponsors", "presentation"].includes(item.id)).map(item => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>
+    <nav>{nav.filter(item => user.role === "administrator" || !["sponsors", "presentation"].includes(item.id)).map(item => <a key={item.id} href={routeHref(viewRoutes[item.id])} className={view === item.id ? "active" : ""}><span>{item.icon}</span>{item.label}</a>)}</nav>
     <div className="sidebar-spacer" />
-    <button className="public-link" onClick={() => setView("registration")}><span>↗</span> Inschrijfpagina</button>
+    <a className="public-link" href={routeHref("/")}><span>↗</span> Inschrijfpagina</a>
     <div className="profile"><div className="avatar">{user.name.split(" ").map(part => part[0]).slice(0, 2).join("")}</div><div><strong>{user.name}</strong><small>{user.role === "administrator" ? "Administrator" : "Host"}</small></div><button onClick={logout} title="Uitloggen">↪</button></div>
   </aside>;
 }
 
-function Topbar({ view, setView, user }: { view: View; setView: (view: View) => void; user: StaffUser }) {
+function Topbar({ view, user }: { view: View; user: StaffUser }) {
   const labels: Record<View, string> = { overview: `Goedemorgen, ${user.name.split(" ")[0]}`, players: "Deelnemers", matches: "Wedstrijden", schedule: "Court planning", sponsors: "Sponsors", presentation: "Presentatiemodus", registration: "Inschrijving" };
-  return <header className="topbar"><div><p>Matchpoint Tournament · 26 juni 2027</p><h1>{labels[view]}</h1></div><div className="top-actions"><button className="primary small" onClick={() => setView("registration")}>＋ Nieuwe inschrijving</button></div></header>;
+  return <header className="topbar"><div><p>Matchpoint Tournament · 26 juni 2027</p><h1>{labels[view]}</h1></div><div className="top-actions"><a className="primary small" href={routeHref("/inschrijven")}>＋ Nieuwe inschrijving</a></div></header>;
 }
 
 function Stat({ value, label, note, badge, accent }: { value: string; label: string; note: string; badge: string; accent?: boolean }) {
@@ -245,8 +257,9 @@ function Registration({ close, tournament }: { close: () => void; tournament: To
   return <div className="registration-page"><header><Brand /><button onClick={close}>Beheeromgeving →</button></header><main><div className="registration-intro"><span className="eyebrow">MATCHPOINT TOURNAMENT · 26 JUNI 2027</span><h1>Jouw route naar<br />het <em>matchpoint.</em></h1><p>{capacity} spelers. Acht rondes. Eén winnaar. Op zaterdag 26 juni 2027 spelen we bij TVA Arkel.</p><div className="event-facts"><div><b>26</b><span>JUN<br />2027</span></div><div><b>{price}</b><span>PER<br />SPELER</span></div><div><b>{capacity}</b><span>PLEKKEN<br />TOTAAL</span></div></div></div><form className="registration-card" onSubmit={submit}><div className="steps"><span className="active">1</span><i /><span className={step >= 2 ? "active" : ""}>2</span><i /><span>3</span></div>{step === 1 ? <><p className="kicker">STAP 1 VAN 3</p><h2>Vertel ons wie je bent</h2><p className="muted">Je moet op de toernooidatum minimaal 18 jaar zijn.</p><label>Naam<input required value={form.name} onChange={e => update("name", e.target.value)} placeholder="Voor- en achternaam" /></label><label>E-mailadres<input required type="email" value={form.email} onChange={e => update("email", e.target.value)} placeholder="naam@voorbeeld.nl" /></label><label>Telefoonnummer<input required type="tel" value={form.phone} onChange={e => update("phone", e.target.value)} placeholder="06 12345678" /></label><label>Geboortedatum<input required type="date" value={form.date_of_birth} onChange={e => update("date_of_birth", e.target.value)} /></label><button type="button" className="primary continue" disabled={!personalComplete} onClick={() => setStep(2)}>Verder →</button></> : <><p className="kicker">STAP 2 VAN 3</p><h2>Spelersprofiel</h2><p className="muted">Vul je bondsnummer in, of zowel je enkel- als dubbelsterkte.</p><label>KNLTB bondsnummer<input value={form.knltb_number} onChange={e => update("knltb_number", e.target.value)} placeholder="Bijv. 1234567" /></label><div className="rating-fields"><label>Speelsterkte enkel<input value={form.singles_rating} onChange={e => update("singles_rating", e.target.value)} placeholder="Bijv. 5" /></label><label>Speelsterkte dubbel<input value={form.doubles_rating} onChange={e => update("doubles_rating", e.target.value)} placeholder="Bijv. 6" /></label></div><small className="hint">Een bondsnummer óf beide speelsterktes is verplicht.</small><label>Opkomstnummer<input required value={form.entrance_song_query} onChange={e => update("entrance_song_query", e.target.value)} placeholder="Artiest – titel" /></label><small className="hint">We zoeken na inschrijving automatisch naar de bijpassende Spotify-track.</small><label className="consent"><input type="checkbox" checked={form.accept_privacy} onChange={e => update("accept_privacy", e.target.checked)} /> Ik ga akkoord met de privacyverklaring.</label><label className="consent"><input type="checkbox" checked={form.accept_terms} onChange={e => update("accept_terms", e.target.checked)} /> Ik ga akkoord met de toernooivoorwaarden.</label><input className="honeypot" tabIndex={-1} autoComplete="off" value={form.website} onChange={e => update("website", e.target.value)} /><div className="payment-summary"><span>Inschrijving Matchpoint Tournament</span><strong>{price}</strong></div>{error && <p className="form-error">{error}</p>}<button type="submit" className="primary continue" disabled={!readyToPay || busy}>{busy ? "Betaling voorbereiden…" : "Veilig betalen met iDEAL →"}</button><button type="button" className="back" onClick={() => setStep(1)}>← Terug</button></>}</form></main></div>;
 }
 
-export default function Home() {
-  const [view, setView] = useState<View>("overview");
+export function TournamentApp({ initialView }: { initialView: View }) {
+  const view = initialView;
+  const setView = (nextView: View) => window.location.assign(routeHref(viewRoutes[nextView]));
   const [tournament, setTournament] = useState<TournamentConfig | null>(null);
   const [user, setUser] = useState<StaffUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -290,5 +303,9 @@ export default function Home() {
     sponsors: <Sponsors user={user} sponsors={sponsors} tiers={sponsorTiers} players={playerRows} reloadSponsors={loadSponsors} reloadPlayers={loadPlayers} />,
     presentation: <Presentation />,
   };
-  return <div className="app-shell"><Sidebar view={view} setView={setView} user={user} logout={logout} /><main className="main"><Topbar view={view} setView={setView} user={user} /><div className="content">{content[view]}</div></main></div>;
+  return <div className="app-shell"><Sidebar view={view} user={user} logout={logout} /><main className="main"><Topbar view={view} user={user} /><div className="content">{content[view]}</div></main></div>;
+}
+
+export default function Home() {
+  return <TournamentApp initialView="registration" />;
 }
