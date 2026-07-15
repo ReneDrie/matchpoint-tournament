@@ -90,6 +90,7 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(modalHooks, /openModals\.at\(-1\)/);
   assert.match(router, /draw\.saved/);
   assert.match(router, /draw\.published/);
+  assert.match(router, /draw\.capacity_changed/);
   assert.match(router, /match\.winner_selected/);
   assert.match(router, /match\.winner_corrected/);
   assert.match(router, /clearDownstreamResult/);

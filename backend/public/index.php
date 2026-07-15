@@ -87,6 +87,7 @@ function drawPayload(PDO $db, int $tournamentId): array
     $drawStatement = $db->prepare('SELECT id, status, bracket_size, published_at, updated_at FROM draws WHERE tournament_id = ? LIMIT 1');
     $drawStatement->execute([$tournamentId]);
     $draw = $drawStatement->fetch();
+    $sizeMismatch = $draw && (int)$draw['bracket_size'] !== $capacity;
     $assigned = [];
     if ($draw) {
         $slotStatement = $db->prepare(
@@ -122,9 +123,9 @@ function drawPayload(PDO $db, int $tournamentId): array
     return [
         'draw' => [
             'id' => $draw ? (int)$draw['id'] : null,
-            'status' => $draw['status'] ?? 'draft',
-            'bracket_size' => $draw ? (int)$draw['bracket_size'] : $capacity,
-            'published_at' => $draw['published_at'] ?? null,
+            'status' => $sizeMismatch ? 'draft' : ($draw['status'] ?? 'draft'),
+            'bracket_size' => $capacity,
+            'published_at' => $sizeMismatch ? null : ($draw['published_at'] ?? null),
             'updated_at' => $draw['updated_at'] ?? null,
         ],
         'slots' => $slots,
@@ -458,6 +459,10 @@ try {
             $value = (int)($data[$field] ?? 0);
             if ($value < $minimum || $value > $maximum) Http::json(['error' => "De waarde voor {$field} is ongeldig."], 422);
         }
+        $currentCapacityStatement = $db->prepare('SELECT capacity FROM tournaments WHERE id = ? LIMIT 1');
+        $currentCapacityStatement->execute([$tournamentId]);
+        $previousCapacity = $currentCapacityStatement->fetchColumn();
+        if ($previousCapacity === false) Http::json(['error' => 'Toernooi niet gevonden.'], 404);
         $quarterFinalRound = max(1, (int)round(log($capacity, 2)) - 2);
         $statement = $db->prepare(
             'UPDATE tournaments SET name = ?, status = ?, starts_at = ?, registration_deadline_at = ?, timezone = ?,
@@ -476,6 +481,19 @@ try {
             $exists = $db->prepare('SELECT id FROM tournaments WHERE id = ?');
             $exists->execute([$tournamentId]);
             if (!$exists->fetch()) Http::json(['error' => 'Toernooi niet gevonden.'], 404);
+        }
+        if ((int)$previousCapacity !== $capacity) {
+            $draw = $db->prepare('SELECT id FROM draws WHERE tournament_id = ? LIMIT 1');
+            $draw->execute([$tournamentId]);
+            $drawId = $draw->fetchColumn();
+            if ($drawId !== false) {
+                $db->prepare('DELETE FROM matches WHERE tournament_id = ?')->execute([$tournamentId]);
+                $db->prepare('DELETE FROM draw_slots WHERE draw_id = ? AND position > ?')->execute([(int)$drawId, $capacity]);
+                $db->prepare("UPDATE draws SET status = 'draft', bracket_size = ?, published_at = NULL, published_by = NULL WHERE id = ?")->execute([$capacity, (int)$drawId]);
+                $db->prepare('UPDATE players SET player_number = NULL WHERE tournament_id = ?')->execute([$tournamentId]);
+                $db->prepare('UPDATE players p JOIN draw_slots ds ON ds.player_id = p.id SET p.player_number = ds.position WHERE ds.draw_id = ?')->execute([(int)$drawId]);
+                Audit::record($db, 'draw.capacity_changed', 'draw', (int)$drawId, $user['id'], $tournamentId, ['from' => (int)$previousCapacity, 'to' => $capacity]);
+            }
         }
         Audit::record($db, 'tournament.settings_updated', 'tournament', $tournamentId, $user['id'], $tournamentId, ['status' => $status, 'capacity' => $capacity]);
         $updated = $db->prepare('SELECT * FROM tournaments WHERE id = ?');
