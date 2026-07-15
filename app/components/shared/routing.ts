@@ -7,6 +7,7 @@ export const viewRoutes: Record<View, string> = {
   matches: "/beheer/wedstrijden",
   schedule: "/beheer/planning",
   sponsors: "/beheer/sponsors",
+  communications: "/beheer/email",
   presentation: "/beheer/presentatie",
   settings: "/beheer/instellingen",
   registration: "/",

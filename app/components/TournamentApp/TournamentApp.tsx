@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Communications } from "../Communications/Communications";
 import { Draw } from "../Draw/Draw";
 import { Login } from "../Login/Login";
 import { Matches } from "../Matches/Matches";
@@ -29,6 +30,7 @@ export function TournamentApp({ initialView }: { initialView: View }) {
     schedule: <Schedule tournamentId={app.tournament?.id ?? 1} user={app.user} />,
     sponsors: <Sponsors user={app.user} sponsors={app.sponsors} tiers={app.sponsorTiers} players={app.playerRows} reloadSponsors={app.loadSponsors} reloadPlayers={app.loadPlayers} />,
     presentation: <Presentation tournamentId={app.tournament?.id ?? 1} user={app.user} sponsors={app.sponsors} defaultDuration={app.tournament?.presentation_defaults.slide_seconds ?? 10} />,
+    communications: app.user.role === "administrator" ? <Communications user={app.user} tournamentId={app.tournament?.id ?? 1} players={app.playerRows} tournamentName={app.tournament?.name ?? "Matchpoint Tournament"} /> : <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />,
     settings: app.user.role === "administrator" ? <Settings tournamentId={app.tournament?.id ?? 1} user={app.user} onTournamentSaved={app.loadPublicTournament} /> : <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />,
   };
 

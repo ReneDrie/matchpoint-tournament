@@ -24,6 +24,7 @@ The application uses normal, directly addressable routes:
 - `/beheer/planning`
 - `/beheer/sponsors`
 - `/beheer/presentatie`
+- `/beheer/email` — handmatige e-mails aan gefilterde of geselecteerde deelnemers
 - `/presentatie` — openbare fullscreen livepresentatie
 - `/beheer/instellingen` — Administrator settings and court management
 - `/beheer/uitnodiging` — veilige activatie van een Host-account
@@ -59,6 +60,7 @@ The implemented foundation endpoints are:
 - `POST /api/auth/invitations` (Administrator)
 - `POST /api/auth/invitations/accept`
 - `GET /api/admin/staff` en `PATCH /api/admin/staff/{id}` (Administrator)
+- `GET /api/admin/emails` en `POST /api/admin/emails/broadcast` (Administrator)
 - `GET /api/admin/tournaments` (staff)
 - `GET/PATCH /api/admin/tournaments/{id}` (Administrator)
 - `GET/POST /api/admin/tournaments/{id}/courts` (Administrator)

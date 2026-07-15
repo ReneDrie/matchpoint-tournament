@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Mollie-testbetaling, veilige bevestigingspagina en idempotente betaalbevestiging
+**Laatste afgeronde feature:** Brevo-integratie, e-mailtemplates en handmatige deelnemersmailing
 
 ## Statuslegenda
 
@@ -16,12 +16,11 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ### Productie-integraties — fase 5A
 
-De eerstvolgende aanbevolen bouwstap rondt betaling en bevestiging af:
+De eerstvolgende aanbevolen bouwstap maakt veilige selfservice voor spelers mogelijk:
 
-- Brevo-afzender en templates configureren.
 - Veilige e-maillinks voor spelers toevoegen.
 
-Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
+Brevo en Mollie zijn lokaal met geldige testgegevens geverifieerd.
 
 ## 0. Technische basis en beheerinterface
 
@@ -55,7 +54,7 @@ Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 
 - ✅ Mollie-testbetaling end-to-end doorlopen met echte testkey.
 - ✅ Veilige bevestigingspagina met actuele Mollie-status en polling.
-- ✅ Idempotente webhook/statusverwerking en betaalbevestigingsmail; echte verzending volgt zodra Brevo is geconfigureerd.
+- ✅ Idempotente webhook/statusverwerking en betaalbevestigingsmail via Brevo.
 - ✅ Wachtlijstformulier, dashboardbeheer, plekreservering en veilige uitnodigingslink.
 - ✅ Uitnodigingsmail wordt via Brevo verzonden of zonder key veilig in de lokale mailwachtrij gezet.
 - 🟡 Beveiligde e-maillinks voor spelers implementeren.
@@ -88,7 +87,7 @@ Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 - 🟡 Een annulering of terugbetaling is als status wijzigbaar, maar nog niet gekoppeld aan een echte Mollie-refund.
 - ✅ Sponsorlogo veilig als SVG uploaden, vervangen en tonen.
 - ✅ Wachtlijst beheren vanuit het dashboard, inclusief uitnodigen en verwijderen.
-- 🟡 Handmatige e-mail aan geselecteerde of alle deelnemers.
+- ✅ Handmatige e-mail aan gefilterde, geselecteerde of alle deelnemers, inclusief voorbeeld en verzendhistorie.
 - 🟡 Auditlog zichtbaar maken voor Administrators.
 - ⬜ Excel-export naast CSV.
 

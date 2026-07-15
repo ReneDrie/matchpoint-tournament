@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 
-export type View = "overview" | "players" | "draw" | "matches" | "schedule" | "sponsors" | "presentation" | "settings" | "registration";
+export type View = "overview" | "players" | "draw" | "matches" | "schedule" | "sponsors" | "communications" | "presentation" | "settings" | "registration";
 
 export type Navigate = (view: View, event?: MouseEvent<HTMLAnchorElement>) => void;
 
@@ -155,6 +155,7 @@ export type StaffUser = {
 };
 export type StaffAccount = { id: number; name: string; email: string; role: "administrator" | "host"; is_active: number; last_login_at: string | null; created_at: string };
 export type StaffInvitation = { id: number; name: string; email: string; role: "administrator" | "host"; expires_at: string; created_at: string };
+export type EmailMessage = { id: number; message_type: string; recipient_email: string; subject: string; status: "queued" | "sent" | "delivered" | "bounced" | "failed"; sent_at: string | null; created_at: string };
 
 export type Player = {
   id: number;

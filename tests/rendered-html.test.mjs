@@ -26,7 +26,7 @@ test("server-renders public registration at the root", async () => {
 });
 
 test("all management URLs can be loaded directly", async () => {
-  for (const pathname of ["/beheer", "/beheer/deelnemers", "/beheer/loting", "/beheer/wedstrijden", "/beheer/planning", "/beheer/sponsors", "/beheer/presentatie", "/beheer/instellingen"]) {
+  for (const pathname of ["/beheer", "/beheer/deelnemers", "/beheer/loting", "/beheer/wedstrijden", "/beheer/planning", "/beheer/sponsors", "/beheer/presentatie", "/beheer/email", "/beheer/instellingen"]) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     assert.match(await response.text(), /Beveiligde omgeving laden/i, pathname);
@@ -65,7 +65,7 @@ test("derives participant and round totals from tournament capacity", async () =
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [appHooks, registrationHooks, waitlistHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, modalHooks, router, schema] = await Promise.all([
+  const [appHooks, registrationHooks, waitlistHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, communicationHooks, modalHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/WaitlistForm.hooks.ts", import.meta.url), "utf8"),
@@ -77,6 +77,7 @@ test("keeps registration configuration and validation wired to the API", async (
     readFile(new URL("../app/components/Matches/Matches.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Schedule/Schedule.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Presentation/Presentation.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Communications/Communications.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Modal/Modal.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
     readFile(new URL("../backend/database/schema.sql", import.meta.url), "utf8"),
@@ -112,6 +113,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(scheduleHooks, /\/schedule\/swap/);
   assert.match(presentationHooks, /\/slides\/upload/);
   assert.match(presentationHooks, /\/slides\/reorder/);
+  assert.match(communicationHooks, /\/api\/admin\/emails\/broadcast/);
+  assert.match(router, /email\.broadcast_sent/);
   assert.match(modalHooks, /event\.key !== "Escape"/);
   assert.match(modalHooks, /openModals\.at\(-1\)/);
   assert.match(router, /draw\.saved/);

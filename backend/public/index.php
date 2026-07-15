@@ -269,7 +269,7 @@ function sendTransactionalEmail(PDO $db, ?int $tournamentId, ?int $userId, strin
             'sender' => ['name' => getenv('BREVO_FROM_NAME') ?: 'Matchpoint Tournament', 'email' => getenv('BREVO_FROM_EMAIL') ?: 'info@matchpointtournament.nl'],
             'to' => [['email' => $recipient]],
             'subject' => $subject,
-            'htmlContent' => $html,
+            'htmlContent' => '<div style="margin:0;background:#f5f1f5;padding:32px;font-family:Arial,sans-serif;color:#2b1f2c"><div style="max-width:620px;margin:auto;background:#fff;border-radius:14px;overflow:hidden"><div style="height:10px;background:#ff0065"></div><div style="padding:30px"><p style="margin:0 0 24px;color:#400046;font-weight:800;letter-spacing:1px">MATCHPOINT TOURNAMENT</p>' . $html . '<p style="margin:30px 0 0;padding-top:20px;border-top:1px solid #eee;color:#756d76;font-size:12px">TVA Arkel · Hoefpad 5, 4241 DT Arkel</p></div></div></div>',
         ], JSON_THROW_ON_ERROR);
         $context = stream_context_create(['http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\napi-key: {$apiKey}\r\n", 'content' => $payload, 'timeout' => 10, 'ignore_errors' => true]]);
         $response = @file_get_contents('https://api.brevo.com/v3/smtp/email', false, $context);
@@ -412,6 +412,49 @@ try {
         $users = $db->query("SELECT id, name, email, role, is_active, last_login_at, created_at FROM users ORDER BY role, name")->fetchAll();
         $invitations = $db->query("SELECT id, name, email, role, expires_at, created_at FROM staff_invitations WHERE accepted_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC")->fetchAll();
         Http::json(['users' => $users, 'invitations' => $invitations]);
+    }
+
+    if ($method === 'GET' && $path === '/api/admin/emails') {
+        Auth::requireRole($db, ['administrator']);
+        $tournamentId = max(1, (int)($_GET['tournament_id'] ?? 1));
+        $statement = $db->prepare('SELECT id, message_type, recipient_email, subject, status, sent_at, created_at FROM email_messages WHERE tournament_id = ? ORDER BY created_at DESC LIMIT 100');
+        $statement->execute([$tournamentId]);
+        Http::json(['messages' => $statement->fetchAll()]);
+    }
+
+    if ($method === 'POST' && $path === '/api/admin/emails/broadcast') {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $data = Http::input();
+        $tournamentId = max(1, (int)($data['tournament_id'] ?? 1));
+        $subject = trim((string)($data['subject'] ?? ''));
+        $body = trim((string)($data['body'] ?? ''));
+        $filter = (string)($data['filter'] ?? 'confirmed');
+        $playerIds = array_values(array_unique(array_filter(array_map('intval', is_array($data['player_ids'] ?? null) ? $data['player_ids'] : []))));
+        if ($subject === '' || $body === '') Http::json(['error' => 'Onderwerp en bericht zijn verplicht.'], 422);
+        if (strlen($subject) > 255 || strlen($body) > 10000) Http::json(['error' => 'Het onderwerp of bericht is te lang.'], 422);
+        $tournamentStatement = $db->prepare('SELECT name FROM tournaments WHERE id = ? LIMIT 1');
+        $tournamentStatement->execute([$tournamentId]);
+        $tournamentName = (string)($tournamentStatement->fetchColumn() ?: 'Matchpoint Tournament');
+        $where = ["p.tournament_id = ?"];
+        $parameters = [$tournamentId];
+        if ($playerIds !== []) { $where[] = 'p.id IN (' . implode(',', array_fill(0, count($playerIds), '?')) . ')'; $parameters = array_merge($parameters, $playerIds); }
+        elseif ($filter === 'checked_in') $where[] = 'p.checked_in_at IS NOT NULL';
+        elseif ($filter === 'all') $where[] = "p.registration_status IN ('confirmed','payment_pending')";
+        else $where[] = "p.registration_status = 'confirmed'";
+        $recipients = $db->prepare('SELECT p.id, p.name, p.email FROM players p WHERE ' . implode(' AND ', $where) . ' ORDER BY p.name');
+        $recipients->execute($parameters);
+        $rows = $recipients->fetchAll();
+        if ($rows === []) Http::json(['error' => 'Er zijn geen deelnemers binnen deze selectie.'], 422);
+        if (count($rows) > 300) Http::json(['error' => 'Een verzending mag maximaal 300 ontvangers bevatten.'], 422);
+        $counts = ['sent' => 0, 'queued' => 0, 'failed' => 0];
+        foreach ($rows as $recipient) {
+            $personalized = nl2br(htmlspecialchars(str_replace(['{naam}', '{toernooi}'], [$recipient['name'], $tournamentName], $body)));
+            $status = sendTransactionalEmail($db, $tournamentId, (int)$user['id'], 'broadcast', $recipient['email'], $subject, '<div style="line-height:1.65">' . $personalized . '</div>', ['player_id' => (int)$recipient['id']]);
+            $counts[$status] = ($counts[$status] ?? 0) + 1;
+        }
+        Audit::record($db, 'email.broadcast_sent', 'tournament', $tournamentId, $user['id'], $tournamentId, ['recipients' => count($rows), 'subject' => $subject, 'counts' => $counts]);
+        Http::json(['recipients' => count($rows), 'counts' => $counts]);
     }
 
     if ($method === 'PATCH' && preg_match('#^/api/admin/staff/(\d+)$#', $path, $matches)) {
