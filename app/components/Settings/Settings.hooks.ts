@@ -151,7 +151,6 @@ export function useCourtEditor({ court, user, saved, onError }: { court: Court; 
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const pendingSaves = useRef(0);
 
-  const dirty = name.trim() !== court.name || surface.trim() !== (court.surface ?? "") || isActive !== Boolean(court.is_active);
   const updateName = (value: string) => { setName(value); setJustSaved(false); };
   const updateSurface = (value: string) => { setSurface(value); setJustSaved(false); };
   const updateIsActive = (value: boolean) => { setIsActive(value); setJustSaved(false); };
@@ -209,5 +208,5 @@ export function useCourtEditor({ court, user, saved, onError }: { court: Court; 
     }
   }
 
-  return { name, surface, isActive, busy, dirty, justSaved, updateName, updateSurface, updateIsActive, save, remove };
+  return { name, surface, isActive, busy, justSaved, updateName, updateSurface, updateIsActive, save, remove };
 }
