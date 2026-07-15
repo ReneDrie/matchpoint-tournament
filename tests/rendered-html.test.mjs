@@ -72,6 +72,7 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(settingsHooks, /surface/);
   assert.match(sponsorHooks, /sponsor-tiers/);
   assert.match(sponsorHooks, /player_limit_override/);
+  assert.match(sponsorHooks, /sponsors\/\$\{result\.sponsor_id\}\/logo/);
   assert.match(router, /tournament\.settings_updated/);
   assert.match(router, /court\.created/);
   assert.match(drawHooks, /\/draw\/publish/);
@@ -106,4 +107,7 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(schema, /included_players SMALLINT UNSIGNED/);
   assert.match(router, /sponsor_package\.updated/);
   assert.match(router, /assertSponsorPlayerCapacity/);
+  assert.match(router, /sponsor\.logo_uploaded/);
+  assert.match(router, /foreignObject/);
+  assert.match(router, /uitvoerbare inhoud/);
 });

@@ -180,6 +180,7 @@ export type Sponsor = {
   contact_phone: string | null;
   website_url: string | null;
   logo_path: string | null;
+  logo_url: string | null;
   is_active: number;
   show_on_public_pages: number;
   tier_id: number;

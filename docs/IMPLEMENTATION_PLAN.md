@@ -33,7 +33,7 @@ De actuele voortgang, openstaande onderdelen en eerstvolgende bouwstap staan in 
 ### 2. CRM operations
 
 - Player search, filters, edit, refund/cancel/waitlist, CSV export and check-in.
-- Sponsor CRUD with contact details, configurable packages, invoice amounts and player allowances. **Implemented; logo upload remains.**
+- Sponsor CRUD with contact details, configurable packages, invoice amounts, player allowances and secure SVG logo uploads. **Implemented.**
 - Court CRUD and tournament-wide settings.
 - Audit log for sensitive staff actions.
 

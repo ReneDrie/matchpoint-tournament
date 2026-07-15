@@ -59,6 +59,7 @@ The implemented foundation endpoints are:
 - `GET /api/admin/players` (staff)
 - `POST/PATCH/DELETE /api/admin/sponsor-tiers` (Administrator)
 - `GET/POST/PATCH /api/admin/sponsors` (Administrator)
+- `POST /api/admin/sponsors/{id}/logo` (Administrator, veilige SVG-upload van maximaal 2 MB)
 - `GET/PUT /api/admin/tournaments/{id}/draw` (Administrator)
 - `POST /api/admin/tournaments/{id}/draw/publish` (Administrator)
 - `GET /api/admin/matches?tournament_id={id}` (Administrator, Host)

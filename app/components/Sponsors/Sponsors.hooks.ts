@@ -21,6 +21,7 @@ export function useSponsorForm({ user, tiers, sponsor, saved, close }: { user: S
   const [contactEmail, setContactEmail] = useState(sponsor?.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(sponsor?.contact_phone ?? "");
   const [playerLimitOverride, setPlayerLimitOverride] = useState(sponsor?.player_limit_override === null || sponsor?.player_limit_override === undefined ? "" : String(sponsor.player_limit_override));
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isActive, setIsActive] = useState(sponsor ? Boolean(sponsor.is_active) : true);
   const [showPublic, setShowPublic] = useState(sponsor ? Boolean(sponsor.show_on_public_pages) : true);
   const [error, setError] = useState("");
@@ -37,11 +38,18 @@ export function useSponsorForm({ user, tiers, sponsor, saved, close }: { user: S
       setBusy(false);
       return;
     }
+    if (logoFile) {
+      const logoForm = new FormData();
+      logoForm.append("logo", logoFile);
+      const logoResponse = await fetch(`${API_URL}/api/admin/sponsors/${result.sponsor_id}/logo`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": user.csrf_token }, body: logoForm });
+      const logoResult = await logoResponse.json();
+      if (!logoResponse.ok) { setError(logoResult.error ?? "Sponsorlogo kon niet worden opgeslagen."); setBusy(false); return; }
+    }
     await saved();
     close();
   }
 
-  return { name, setName, tierId, setTierId, website, setWebsite, contactEmail, setContactEmail, contactPhone, setContactPhone, playerLimitOverride, setPlayerLimitOverride, isActive, setIsActive, showPublic, setShowPublic, error, busy, submit };
+  return { name, setName, tierId, setTierId, website, setWebsite, contactEmail, setContactEmail, contactPhone, setContactPhone, playerLimitOverride, setPlayerLimitOverride, logoFile, setLogoFile, isActive, setIsActive, showPublic, setShowPublic, error, busy, submit };
 }
 
 export function useSponsorPackageForm({ user, sponsorPackage, saved, close }: { user: StaffUser; sponsorPackage?: SponsorTier; saved: () => Promise<void>; close: () => void }) {

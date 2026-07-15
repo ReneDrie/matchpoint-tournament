@@ -1028,9 +1028,12 @@ try {
              WHERE s.tournament_id = ? GROUP BY s.id, st.id ORDER BY st.sort_order, s.sort_order, s.name"
         );
         $statement->execute([$tournamentId]);
+        $sponsors = $statement->fetchAll();
+        foreach ($sponsors as &$sponsor) $sponsor['logo_url'] = publicAssetUrl($sponsor['logo_path']);
+        unset($sponsor);
         $tiers = $db->prepare('SELECT st.id, st.name, st.cost_cents, st.included_players, COUNT(s.id) AS sponsor_count FROM sponsor_tiers st LEFT JOIN sponsors s ON s.tier_id = st.id WHERE st.tournament_id = ? GROUP BY st.id ORDER BY st.sort_order, st.name');
         $tiers->execute([$tournamentId]);
-        Http::json(['sponsors' => $statement->fetchAll(), 'tiers' => $tiers->fetchAll()]);
+        Http::json(['sponsors' => $sponsors, 'tiers' => $tiers->fetchAll()]);
     }
 
     if ($method === 'POST' && $path === '/api/admin/sponsor-tiers') {
@@ -1139,6 +1142,51 @@ try {
             ->execute([$tierId, $name, $email ?: null, trim((string)($data['contact_phone'] ?? '')) ?: null, trim((string)($data['website_url'] ?? '')) ?: null, $override, $isActive ? 1 : 0, $showPublic ? 1 : 0, $sponsorId]);
         Audit::record($db, 'sponsor.updated', 'sponsor', $sponsorId, $user['id'], $tournamentId, ['tier_id' => $tierId, 'is_active' => $isActive, 'show_on_public_pages' => $showPublic]);
         Http::json(['sponsor_id' => $sponsorId, 'updated' => true]);
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/sponsors/(\d+)/logo$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $sponsorId = (int)$matches[1];
+        $current = $db->prepare('SELECT tournament_id, logo_path FROM sponsors WHERE id = ? LIMIT 1');
+        $current->execute([$sponsorId]);
+        $sponsor = $current->fetch();
+        if (!$sponsor) Http::json(['error' => 'Sponsor niet gevonden.'], 404);
+        if (!isset($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) Http::json(['error' => 'Kies een geldig SVG-logo.'], 422);
+        $file = $_FILES['logo'];
+        if ((int)$file['size'] > 2 * 1024 * 1024) Http::json(['error' => 'Het sponsorlogo mag maximaal 2 MB zijn.'], 422);
+        $content = file_get_contents($file['tmp_name']);
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+        if ($content === false || !in_array($mime, ['image/svg+xml', 'text/plain', 'application/xml', 'text/xml'], true) || !preg_match('/<svg\b[^>]*>/i', $content) || !preg_match('/<\/svg\s*>/i', $content)) {
+            Http::json(['error' => 'Het bestand is geen geldige SVG.'], 422);
+        }
+        $unsafePatterns = [
+            '/<!DOCTYPE|<!ENTITY/i',
+            '/<\s*(script|foreignObject|iframe|object|embed)\b/i',
+            '/\son[a-z]+\s*=/i',
+            '/javascript\s*:/i',
+            '/(?:href|xlink:href)\s*=\s*["\']\s*(?:https?:|\/\/|data:)/i',
+            '/url\(\s*["\']?\s*(?:https?:|\/\/|data:)/i',
+        ];
+        foreach ($unsafePatterns as $pattern) if (preg_match($pattern, $content)) Http::json(['error' => 'Deze SVG bevat externe of uitvoerbare inhoud en is daarom niet toegestaan.'], 422);
+        $directory = __DIR__ . '/uploads/sponsors';
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) Http::json(['error' => 'De uploadmap kon niet worden aangemaakt.'], 500);
+        $filename = bin2hex(random_bytes(16)) . '.svg';
+        $target = $directory . '/' . $filename;
+        if (file_put_contents($target, $content, LOCK_EX) === false) Http::json(['error' => 'Het sponsorlogo kon niet worden opgeslagen.'], 500);
+        $path = '/uploads/sponsors/' . $filename;
+        try {
+            $db->prepare('UPDATE sponsors SET logo_path = ? WHERE id = ?')->execute([$path, $sponsorId]);
+        } catch (Throwable $cause) {
+            unlink($target);
+            throw $cause;
+        }
+        if ($sponsor['logo_path']) {
+            $oldFile = __DIR__ . '/' . ltrim((string)$sponsor['logo_path'], '/');
+            if (is_file($oldFile)) unlink($oldFile);
+        }
+        Audit::record($db, 'sponsor.logo_uploaded', 'sponsor', $sponsorId, $user['id'], (int)$sponsor['tournament_id']);
+        Http::json(['sponsor_id' => $sponsorId, 'logo_path' => $path]);
     }
 
     if ($method === 'GET' && $path === '/api/admin/players/export') {

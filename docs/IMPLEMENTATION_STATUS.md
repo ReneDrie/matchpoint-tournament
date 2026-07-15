@@ -87,7 +87,7 @@ Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 ### Nog nodig
 
 - 🟡 Een annulering of terugbetaling is als status wijzigbaar, maar nog niet gekoppeld aan een echte Mollie-refund.
-- 🟡 Sponsorlogo uploaden en tonen.
+- ✅ Sponsorlogo veilig als SVG uploaden, vervangen en tonen.
 - 🟡 Wachtlijst beheren vanuit het dashboard.
 - 🟡 Handmatige e-mail aan geselecteerde of alle deelnemers.
 - 🟡 Auditlog zichtbaar maken voor Administrators.

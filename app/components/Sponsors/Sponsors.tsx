@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { ManualPlayerModal } from "../Players/ManualPlayerModal";
 import type { Player, Sponsor, SponsorTier, StaffUser } from "../shared/types";
 import { SponsorModal } from "./SponsorModal";
@@ -23,7 +25,7 @@ export function Sponsors({ user, sponsors, tiers, players, reloadSponsors, reloa
           const sponsoredPlayers = players.filter(player => player.sponsor_id === sponsor.id && player.registration_status === "confirmed");
           const full = sponsoredPlayers.length >= Number(sponsor.effective_player_limit);
           return <article className={`sponsor-management-card ${sponsor.is_active ? "" : "inactive"}`} key={sponsor.id}>
-            <div className="sponsor-card-head"><div className="sponsor-logo">{sponsor.name.split(" ").map(part => part[0]).slice(0, 2).join("")}</div><div><span className={sponsor.is_active ? "status paid" : "status pending"}>{sponsor.is_active ? sponsor.tier_name : "Inactief"}</span><h3>{sponsor.name}</h3><small>{money(Number(sponsor.package_cost_cents))} · eenmalig</small>{sponsor.website_url && <a href={sponsor.website_url} target="_blank" rel="noreferrer">Website openen ↗</a>}</div><button className="secondary sponsor-edit" onClick={() => controller.setEditingSponsor(sponsor)}>Wijzigen</button></div>
+            <div className="sponsor-card-head"><div className="sponsor-logo">{sponsor.logo_url ? <img src={sponsor.logo_url} alt={`${sponsor.name} logo`} /> : sponsor.name.split(" ").map(part => part[0]).slice(0, 2).join("")}</div><div><span className={sponsor.is_active ? "status paid" : "status pending"}>{sponsor.is_active ? sponsor.tier_name : "Inactief"}</span><h3>{sponsor.name}</h3><small>{money(Number(sponsor.package_cost_cents))} · eenmalig</small>{sponsor.website_url && <a href={sponsor.website_url} target="_blank" rel="noreferrer">Website openen ↗</a>}</div><button className="secondary sponsor-edit" onClick={() => controller.setEditingSponsor(sponsor)}>Wijzigen</button></div>
             {(sponsor.contact_email || sponsor.contact_phone) && <div className="sponsor-contact"><strong>Contact</strong>{sponsor.contact_email && <a href={`mailto:${sponsor.contact_email}`}>{sponsor.contact_email}</a>}{sponsor.contact_phone && <a href={`tel:${sponsor.contact_phone}`}>{sponsor.contact_phone}</a>}</div>}
             <div className="sponsor-player-head"><strong>Spelers uit sponsorpakket</strong><span className={full ? "full" : ""}>{sponsoredPlayers.length} / {sponsor.effective_player_limit}</span></div>
             {sponsor.player_limit_override !== null && <small className="sponsor-override">Override actief · pakketstandaard {sponsor.package_included_players}</small>}
