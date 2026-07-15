@@ -176,6 +176,8 @@ export type PlayerDetail = Player & { date_of_birth: string };
 export type Sponsor = {
   id: number;
   name: string;
+  contact_email: string | null;
+  contact_phone: string | null;
   website_url: string | null;
   logo_path: string | null;
   is_active: number;
@@ -183,6 +185,10 @@ export type Sponsor = {
   tier_id: number;
   tier_name: string;
   player_count: number;
+  package_cost_cents: number;
+  package_included_players: number;
+  player_limit_override: number | null;
+  effective_player_limit: number;
 };
 
-export type SponsorTier = { id: number; name: string };
+export type SponsorTier = { id: number; name: string; cost_cents: number; included_players: number; sponsor_count: number };

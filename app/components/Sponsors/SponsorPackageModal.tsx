@@ -1,0 +1,11 @@
+"use client";
+
+import { useModalDismiss } from "../Modal/Modal.hooks";
+import type { SponsorTier, StaffUser } from "../shared/types";
+import { useSponsorPackageForm } from "./Sponsors.hooks";
+
+export function SponsorPackageModal({ user, sponsorPackage, close, saved }: { user: StaffUser; sponsorPackage?: SponsorTier; close: () => void; saved: () => Promise<void> }) {
+  useModalDismiss(close);
+  const form = useSponsorPackageForm({ user, sponsorPackage, close, saved });
+  return <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}><form className="modal-card sponsor-modal" role="dialog" aria-modal="true" aria-labelledby="package-modal-title" onSubmit={form.submit}><div className="modal-header"><div><p>SPONSORPAKKET</p><h2 id="package-modal-title">{sponsorPackage ? "Pakket wijzigen" : "Pakket toevoegen"}</h2></div><button type="button" className="modal-close" onClick={close} aria-label="Sluiten">×</button></div><div className="modal-grid"><label className="modal-wide">Naam<input autoFocus required value={form.name} onChange={event => form.setName(event.target.value)} placeholder="Bijvoorbeeld Hoofdsponsor" /></label><label>Eenmalige kosten<div className="money-input"><span>€</span><input inputMode="decimal" required value={form.cost} onChange={event => form.setCost(event.target.value)} /></div><small>Wordt later als factuurbedrag gebruikt.</small></label><label>Standaard extra spelers<input type="number" min="0" max="256" required value={form.includedPlayers} onChange={event => form.setIncludedPlayers(Number(event.target.value))} /><small>Per sponsor afzonderlijk te overriden.</small></label></div>{form.error && <p className="form-error">{form.error}</p>}<div className="modal-actions">{sponsorPackage && <button type="button" className="danger-action" onClick={form.remove} disabled={form.busy || sponsorPackage.sponsor_count > 0}>Verwijderen</button>}<button type="button" className="secondary" onClick={close}>Annuleren</button><button className="primary" disabled={!form.name || !Number.isFinite(form.costCents) || form.costCents < 0 || form.busy}>{form.busy ? "Opslaan…" : "Pakket opslaan"}</button></div></form></div>;
+}

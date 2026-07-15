@@ -57,6 +57,8 @@ The implemented foundation endpoints are:
 - `GET/POST /api/admin/tournaments/{id}/courts` (Administrator)
 - `PATCH/DELETE /api/admin/courts/{id}` (Administrator)
 - `GET /api/admin/players` (staff)
+- `POST/PATCH/DELETE /api/admin/sponsor-tiers` (Administrator)
+- `GET/POST/PATCH /api/admin/sponsors` (Administrator)
 - `GET/PUT /api/admin/tournaments/{id}/draw` (Administrator)
 - `POST /api/admin/tournaments/{id}/draw/publish` (Administrator)
 - `GET /api/admin/matches?tournament_id={id}` (Administrator, Host)

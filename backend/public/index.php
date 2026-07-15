@@ -278,6 +278,20 @@ function presentationSlidesPayload(PDO $db, int $tournamentId, bool $activeOnly 
     }, $statement->fetchAll());
 }
 
+function assertSponsorPlayerCapacity(PDO $db, int $sponsorId, int $tournamentId, ?int $excludePlayerId = null): void
+{
+    $statement = $db->prepare(
+        'SELECT COALESCE(s.player_limit_override, st.included_players) AS player_limit,
+                (SELECT COUNT(*) FROM players p WHERE p.sponsor_id = s.id AND p.registration_status = \'confirmed\' AND (? IS NULL OR p.id <> ?)) AS player_count
+         FROM sponsors s JOIN sponsor_tiers st ON st.id = s.tier_id
+         WHERE s.id = ? AND s.tournament_id = ? AND s.is_active = 1 LIMIT 1'
+    );
+    $statement->execute([$excludePlayerId, $excludePlayerId, $sponsorId, $tournamentId]);
+    $sponsor = $statement->fetch();
+    if (!$sponsor) Http::json(['error' => 'De geselecteerde sponsor bestaat niet of is niet actief.'], 422);
+    if ((int)$sponsor['player_count'] >= (int)$sponsor['player_limit']) Http::json(['error' => 'Het inbegrepen spelersaantal van deze sponsor is bereikt. Verhoog eerst de sponsoroverride.'], 409);
+}
+
 try {
     $db = Database::connect();
 
@@ -910,9 +924,7 @@ try {
         if ((int)$count->fetchColumn() >= (int)$edition['capacity']) Http::json(['error' => 'Het deelnemersveld is vol.'], 409);
         $sponsorId = !empty($data['sponsor_id']) ? (int)$data['sponsor_id'] : null;
         if ($sponsorId !== null) {
-            $sponsor = $db->prepare('SELECT id FROM sponsors WHERE id = ? AND tournament_id = ? AND is_active = 1 LIMIT 1');
-            $sponsor->execute([$sponsorId, $tournamentId]);
-            if (!$sponsor->fetch()) Http::json(['error' => 'De geselecteerde sponsor bestaat niet of is niet actief.'], 422);
+            assertSponsorPlayerCapacity($db, $sponsorId, $tournamentId);
         }
 
         $statement = $db->prepare(
@@ -985,9 +997,7 @@ try {
         if ($duplicate->fetch()) Http::json(['error' => 'Er bestaat al een actieve deelnemer met dit e-mailadres.'], 409);
         $sponsorId = !empty($data['sponsor_id']) ? (int)$data['sponsor_id'] : null;
         if ($sponsorId !== null) {
-            $sponsor = $db->prepare('SELECT id FROM sponsors WHERE id = ? AND tournament_id = ? AND is_active = 1 LIMIT 1');
-            $sponsor->execute([$sponsorId, $tournamentId]);
-            if (!$sponsor->fetch()) Http::json(['error' => 'De geselecteerde sponsor bestaat niet of is niet actief.'], 422);
+            assertSponsorPlayerCapacity($db, $sponsorId, $tournamentId, $playerId);
         }
         $statement = $db->prepare(
             'UPDATE players SET sponsor_id = ?, name = ?, email = ?, phone = ?, date_of_birth = ?, age_verified_at = NOW(),
@@ -1008,17 +1018,77 @@ try {
         Auth::requireRole($db, ['administrator']);
         $tournamentId = max(1, (int)($_GET['tournament_id'] ?? 1));
         $statement = $db->prepare(
-            "SELECT s.id, s.name, s.website_url, s.logo_path, s.is_active, s.show_on_public_pages,
-                    st.id AS tier_id, st.name AS tier_name,
+            "SELECT s.id, s.name, s.contact_email, s.contact_phone, s.website_url, s.logo_path, s.player_limit_override,
+                    s.is_active, s.show_on_public_pages, st.id AS tier_id, st.name AS tier_name,
+                    st.cost_cents AS package_cost_cents, st.included_players AS package_included_players,
+                    COALESCE(s.player_limit_override, st.included_players) AS effective_player_limit,
                     COUNT(p.id) AS player_count
              FROM sponsors s LEFT JOIN sponsor_tiers st ON st.id = s.tier_id
              LEFT JOIN players p ON p.sponsor_id = s.id AND p.registration_status = 'confirmed'
              WHERE s.tournament_id = ? GROUP BY s.id, st.id ORDER BY st.sort_order, s.sort_order, s.name"
         );
         $statement->execute([$tournamentId]);
-        $tiers = $db->prepare('SELECT id, name FROM sponsor_tiers WHERE tournament_id = ? ORDER BY sort_order, name');
+        $tiers = $db->prepare('SELECT st.id, st.name, st.cost_cents, st.included_players, COUNT(s.id) AS sponsor_count FROM sponsor_tiers st LEFT JOIN sponsors s ON s.tier_id = st.id WHERE st.tournament_id = ? GROUP BY st.id ORDER BY st.sort_order, st.name');
         $tiers->execute([$tournamentId]);
         Http::json(['sponsors' => $statement->fetchAll(), 'tiers' => $tiers->fetchAll()]);
+    }
+
+    if ($method === 'POST' && $path === '/api/admin/sponsor-tiers') {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $data = Http::input();
+        $tournamentId = max(1, (int)($data['tournament_id'] ?? 1));
+        $name = trim((string)($data['name'] ?? ''));
+        $cost = (int)($data['cost_cents'] ?? -1);
+        $players = (int)($data['included_players'] ?? -1);
+        if ($name === '' || $cost < 0 || $players < 0 || $players > 256) Http::json(['error' => 'Vul een naam, geldige kosten en een spelersaantal in.'], 422);
+        $duplicate = $db->prepare('SELECT id FROM sponsor_tiers WHERE tournament_id = ? AND name = ?');
+        $duplicate->execute([$tournamentId, $name]);
+        if ($duplicate->fetch()) Http::json(['error' => 'Er bestaat al een sponsorpakket met deze naam.'], 409);
+        $order = $db->prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM sponsor_tiers WHERE tournament_id = ?');
+        $order->execute([$tournamentId]);
+        $db->prepare('INSERT INTO sponsor_tiers (tournament_id, name, cost_cents, included_players, sort_order) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$tournamentId, $name, $cost, $players, (int)$order->fetchColumn()]);
+        $tierId = (int)$db->lastInsertId();
+        Audit::record($db, 'sponsor_package.created', 'sponsor_tier', $tierId, $user['id'], $tournamentId, ['cost_cents' => $cost, 'included_players' => $players]);
+        Http::json(['tier_id' => $tierId], 201);
+    }
+
+    if ($method === 'PATCH' && preg_match('#^/api/admin/sponsor-tiers/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tierId = (int)$matches[1];
+        $data = Http::input();
+        $name = trim((string)($data['name'] ?? ''));
+        $cost = (int)($data['cost_cents'] ?? -1);
+        $players = (int)($data['included_players'] ?? -1);
+        if ($name === '' || $cost < 0 || $players < 0 || $players > 256) Http::json(['error' => 'Vul geldige pakketgegevens in.'], 422);
+        $current = $db->prepare('SELECT tournament_id FROM sponsor_tiers WHERE id = ?');
+        $current->execute([$tierId]);
+        $tournamentId = (int)$current->fetchColumn();
+        if (!$tournamentId) Http::json(['error' => 'Sponsorpakket niet gevonden.'], 404);
+        $duplicate = $db->prepare('SELECT id FROM sponsor_tiers WHERE tournament_id = ? AND name = ? AND id <> ?');
+        $duplicate->execute([$tournamentId, $name, $tierId]);
+        if ($duplicate->fetch()) Http::json(['error' => 'Er bestaat al een sponsorpakket met deze naam.'], 409);
+        $db->prepare('UPDATE sponsor_tiers SET name = ?, cost_cents = ?, included_players = ? WHERE id = ?')->execute([$name, $cost, $players, $tierId]);
+        Audit::record($db, 'sponsor_package.updated', 'sponsor_tier', $tierId, $user['id'], $tournamentId, ['cost_cents' => $cost, 'included_players' => $players]);
+        Http::json(['tier_id' => $tierId, 'updated' => true]);
+    }
+
+    if ($method === 'DELETE' && preg_match('#^/api/admin/sponsor-tiers/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tierId = (int)$matches[1];
+        $current = $db->prepare('SELECT tournament_id FROM sponsor_tiers WHERE id = ?');
+        $current->execute([$tierId]);
+        $tournamentId = (int)$current->fetchColumn();
+        if (!$tournamentId) Http::json(['error' => 'Sponsorpakket niet gevonden.'], 404);
+        $usage = $db->prepare('SELECT COUNT(*) FROM sponsors WHERE tier_id = ?');
+        $usage->execute([$tierId]);
+        if ((int)$usage->fetchColumn() > 0) Http::json(['error' => 'Verplaats de gekoppelde sponsors voordat je dit pakket verwijdert.'], 409);
+        $db->prepare('DELETE FROM sponsor_tiers WHERE id = ?')->execute([$tierId]);
+        Audit::record($db, 'sponsor_package.deleted', 'sponsor_tier', $tierId, $user['id'], $tournamentId);
+        Http::json(['deleted' => true]);
     }
 
     if ($method === 'POST' && $path === '/api/admin/sponsors') {
@@ -1032,8 +1102,12 @@ try {
         $tier = $db->prepare('SELECT id FROM sponsor_tiers WHERE id = ? AND tournament_id = ? LIMIT 1');
         $tier->execute([$tierId, $tournamentId]);
         if (!$tier->fetch()) Http::json(['error' => 'Ongeldig sponsorniveau.'], 422);
-        $db->prepare('INSERT INTO sponsors (tournament_id, tier_id, name, website_url) VALUES (?, ?, ?, ?)')
-            ->execute([$tournamentId, $tierId, $name, trim((string)($data['website_url'] ?? '')) ?: null]);
+        $email = strtolower(trim((string)($data['contact_email'] ?? '')));
+        if ($email && !filter_var($email, FILTER_VALIDATE_EMAIL)) Http::json(['error' => 'Vul een geldig contact-e-mailadres in.'], 422);
+        $override = ($data['player_limit_override'] ?? '') !== '' && $data['player_limit_override'] !== null ? (int)$data['player_limit_override'] : null;
+        if ($override !== null && ($override < 0 || $override > 256)) Http::json(['error' => 'De spelersoverride moet tussen 0 en 256 liggen.'], 422);
+        $db->prepare('INSERT INTO sponsors (tournament_id, tier_id, name, contact_email, contact_phone, website_url, player_limit_override) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$tournamentId, $tierId, $name, $email ?: null, trim((string)($data['contact_phone'] ?? '')) ?: null, trim((string)($data['website_url'] ?? '')) ?: null, $override]);
         $sponsorId = (int)$db->lastInsertId();
         Audit::record($db, 'sponsor.created', 'sponsor', $sponsorId, $user['id'], $tournamentId);
         Http::json(['sponsor_id' => $sponsorId], 201);
@@ -1057,8 +1131,12 @@ try {
         if (!$tier->fetch()) Http::json(['error' => 'Ongeldig sponsorniveau.'], 422);
         $isActive = !array_key_exists('is_active', $data) || (bool)$data['is_active'];
         $showPublic = !array_key_exists('show_on_public_pages', $data) || (bool)$data['show_on_public_pages'];
-        $db->prepare('UPDATE sponsors SET tier_id = ?, name = ?, website_url = ?, is_active = ?, show_on_public_pages = ? WHERE id = ?')
-            ->execute([$tierId, $name, trim((string)($data['website_url'] ?? '')) ?: null, $isActive ? 1 : 0, $showPublic ? 1 : 0, $sponsorId]);
+        $email = strtolower(trim((string)($data['contact_email'] ?? '')));
+        if ($email && !filter_var($email, FILTER_VALIDATE_EMAIL)) Http::json(['error' => 'Vul een geldig contact-e-mailadres in.'], 422);
+        $override = ($data['player_limit_override'] ?? '') !== '' && $data['player_limit_override'] !== null ? (int)$data['player_limit_override'] : null;
+        if ($override !== null && ($override < 0 || $override > 256)) Http::json(['error' => 'De spelersoverride moet tussen 0 en 256 liggen.'], 422);
+        $db->prepare('UPDATE sponsors SET tier_id = ?, name = ?, contact_email = ?, contact_phone = ?, website_url = ?, player_limit_override = ?, is_active = ?, show_on_public_pages = ? WHERE id = ?')
+            ->execute([$tierId, $name, $email ?: null, trim((string)($data['contact_phone'] ?? '')) ?: null, trim((string)($data['website_url'] ?? '')) ?: null, $override, $isActive ? 1 : 0, $showPublic ? 1 : 0, $sponsorId]);
         Audit::record($db, 'sponsor.updated', 'sponsor', $sponsorId, $user['id'], $tournamentId, ['tier_id' => $tierId, 'is_active' => $isActive, 'show_on_public_pages' => $showPublic]);
         Http::json(['sponsor_id' => $sponsorId, 'updated' => true]);
     }

@@ -160,6 +160,8 @@ CREATE TABLE sponsor_tiers (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   tournament_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(80) NOT NULL,
+  cost_cents INT UNSIGNED NOT NULL DEFAULT 0,
+  included_players SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   sort_order SMALLINT NOT NULL DEFAULT 0,
   CONSTRAINT tiers_tournament_fk FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE,
   UNIQUE KEY tiers_name_unique (tournament_id, name)
@@ -170,8 +172,11 @@ CREATE TABLE sponsors (
   tournament_id BIGINT UNSIGNED NOT NULL,
   tier_id BIGINT UNSIGNED NULL,
   name VARCHAR(150) NOT NULL,
+  contact_email VARCHAR(190) NULL,
+  contact_phone VARCHAR(40) NULL,
   website_url VARCHAR(500) NULL,
   logo_path VARCHAR(500) NULL,
+  player_limit_override SMALLINT UNSIGNED NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   show_on_public_pages BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order SMALLINT NOT NULL DEFAULT 0,
@@ -352,6 +357,6 @@ SET @tournament_id = LAST_INSERT_ID();
 INSERT INTO courts (tournament_id, name, sort_order) VALUES
   (@tournament_id, 'Baan 1', 1),
   (@tournament_id, 'Baan 2', 2);
-INSERT INTO sponsor_tiers (tournament_id, name, sort_order) VALUES
-  (@tournament_id, 'Hoofdsponsor', 1),
-  (@tournament_id, 'Subsponsor', 2);
+INSERT INTO sponsor_tiers (tournament_id, name, cost_cents, included_players, sort_order) VALUES
+  (@tournament_id, 'Hoofdsponsor', 0, 4, 1),
+  (@tournament_id, 'Subsponsor', 0, 2, 2);

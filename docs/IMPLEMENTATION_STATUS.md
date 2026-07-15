@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** openbare fullscreen presentatiemodus met beheerde slides en live planning
+**Laatste afgeronde feature:** configureerbare sponsorpakketten met kosten, spelerslimieten en sponsorcontacten
 
 ## Statuslegenda
 
@@ -76,6 +76,10 @@ Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 - ✅ CSV-export van deelnemers.
 - ✅ Sponsor toevoegen en wijzigen.
 - ✅ Hoofdsponsor- en Subsponsor-niveaus.
+- ✅ Sponsorpakketten toevoegen en wijzigen met eenmalige kosten in centen.
+- ✅ Standaard inbegrepen spelers per pakket en override per sponsor.
+- ✅ Pakketlimiet wordt afgedwongen bij het toevoegen van sponsorpakketspelers.
+- ✅ Contact-e-mail en telefoonnummer per sponsor.
 - ✅ Toernooi-instellingen in tabs voor Algemeen, Planning, Presentatie en Banen.
 - ✅ Baan toevoegen, wijzigen, activeren, automatisch opslaan en verwijderen.
 - ✅ Auditregistratie voor belangrijke mutaties in de API.

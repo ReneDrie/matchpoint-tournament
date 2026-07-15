@@ -40,12 +40,13 @@ test("server-renders the public presentation directly", async () => {
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, modalHooks, router, schema] = await Promise.all([
+  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, modalHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Login/Login.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Players/Players.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Settings/Settings.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Sponsors/Sponsors.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Draw/Draw.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Matches/Matches.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Schedule/Schedule.hooks.ts", import.meta.url), "utf8"),
@@ -69,6 +70,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(settingsHooks, /\/api\/admin\/tournaments/);
   assert.match(settingsHooks, /\/courts/);
   assert.match(settingsHooks, /surface/);
+  assert.match(sponsorHooks, /sponsor-tiers/);
+  assert.match(sponsorHooks, /player_limit_override/);
   assert.match(router, /tournament\.settings_updated/);
   assert.match(router, /court\.created/);
   assert.match(drawHooks, /\/draw\/publish/);
@@ -99,4 +102,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(schema, /CREATE TABLE tournaments/);
   assert.match(schema, /CREATE TABLE user_sessions/);
   assert.match(schema, /Hoofdsponsor/);
+  assert.match(schema, /cost_cents INT UNSIGNED/);
+  assert.match(schema, /included_players SMALLINT UNSIGNED/);
+  assert.match(router, /sponsor_package\.updated/);
+  assert.match(router, /assertSponsorPlayerCapacity/);
 });
