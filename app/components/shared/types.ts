@@ -77,6 +77,32 @@ export type TournamentDraw = {
 
 export type DrawData = { draw: TournamentDraw; slots: DrawSlot[]; players: DrawPlayer[] };
 
+export type TournamentMatch = {
+  id: number;
+  round_number: number;
+  bracket_position: number;
+  player_one_id: number | null;
+  player_two_id: number | null;
+  player_one_name: string | null;
+  player_two_name: string | null;
+  player_one_number: number | null;
+  player_two_number: number | null;
+  player_one_is_bye: boolean;
+  player_two_is_bye: boolean;
+  winner_id: number | null;
+  winner_name: string | null;
+  next_match_id: number | null;
+  next_match_slot: "player_one" | "player_two" | null;
+  court_id: number | null;
+  court_name: string | null;
+  scheduled_at: string | null;
+  duration_minutes: number;
+  status: "draft" | "scheduled" | "ready" | "complete";
+  completed_at: string | null;
+};
+
+export type MatchesData = { matches: TournamentMatch[]; round_count: number };
+
 export type StaffUser = {
   id: number;
   name: string;

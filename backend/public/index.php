@@ -132,6 +132,48 @@ function drawPayload(PDO $db, int $tournamentId): array
     ];
 }
 
+function matchesPayload(PDO $db, int $tournamentId): array
+{
+    $statement = $db->prepare(
+        'SELECT m.id, m.round_number, m.bracket_position, m.player_one_id, m.player_two_id,
+                m.player_one_is_bye, m.player_two_is_bye, m.winner_id, m.next_match_id, m.next_match_slot,
+                m.court_id, m.scheduled_at, m.duration_minutes, m.status, m.completed_at,
+                p1.name AS player_one_name, p1.player_number AS player_one_number,
+                p2.name AS player_two_name, p2.player_number AS player_two_number,
+                w.name AS winner_name, c.name AS court_name
+         FROM matches m
+         LEFT JOIN players p1 ON p1.id = m.player_one_id
+         LEFT JOIN players p2 ON p2.id = m.player_two_id
+         LEFT JOIN players w ON w.id = m.winner_id
+         LEFT JOIN courts c ON c.id = m.court_id
+         WHERE m.tournament_id = ? ORDER BY m.round_number, m.bracket_position'
+    );
+    $statement->execute([$tournamentId]);
+    $matches = array_map(static function (array $match): array {
+        foreach (['id', 'round_number', 'bracket_position', 'duration_minutes'] as $field) $match[$field] = (int)$match[$field];
+        foreach (['player_one_id', 'player_two_id', 'winner_id', 'next_match_id', 'court_id', 'player_one_number', 'player_two_number'] as $field) {
+            $match[$field] = $match[$field] !== null ? (int)$match[$field] : null;
+        }
+        $match['player_one_is_bye'] = (bool)$match['player_one_is_bye'];
+        $match['player_two_is_bye'] = (bool)$match['player_two_is_bye'];
+        return $match;
+    }, $statement->fetchAll());
+    return ['matches' => $matches, 'round_count' => $matches ? max(array_column($matches, 'round_number')) : 0];
+}
+
+function clearDownstreamResult(PDO $db, array $match, int $userId): void
+{
+    if ($match['next_match_id'] === null || $match['next_match_slot'] === null) return;
+    $nextStatement = $db->prepare('SELECT * FROM matches WHERE id = ? FOR UPDATE');
+    $nextStatement->execute([(int)$match['next_match_id']]);
+    $next = $nextStatement->fetch();
+    if (!$next) return;
+    if ($next['winner_id'] !== null) clearDownstreamResult($db, $next, $userId);
+    $slot = $match['next_match_slot'] === 'player_two' ? 'player_two_id' : 'player_one_id';
+    $db->prepare("UPDATE matches SET {$slot} = NULL, winner_id = NULL, completed_at = NULL,
+        status = IF(scheduled_at IS NULL, 'draft', 'scheduled'), updated_by = ? WHERE id = ?")->execute([$userId, (int)$next['id']]);
+}
+
 try {
     $db = Database::connect();
 
@@ -431,7 +473,8 @@ try {
         Auth::verifyCsrf($user);
         $tournamentId = (int)$matches[1];
         $drawStatement = $db->prepare(
-            'SELECT d.id, d.bracket_size, t.capacity, t.default_match_minutes FROM draws d JOIN tournaments t ON t.id = d.tournament_id WHERE d.tournament_id = ? LIMIT 1'
+            'SELECT d.id, d.bracket_size, t.capacity, t.default_match_minutes, t.final_round_match_minutes, t.final_round_starts_at
+             FROM draws d JOIN tournaments t ON t.id = d.tournament_id WHERE d.tournament_id = ? LIMIT 1'
         );
         $drawStatement->execute([$tournamentId]);
         $draw = $drawStatement->fetch();
@@ -460,21 +503,94 @@ try {
         $db->prepare('DELETE FROM matches WHERE tournament_id = ?')->execute([$tournamentId]);
         $insertMatch = $db->prepare(
             "INSERT INTO matches (tournament_id, round_number, bracket_position, player_one_id, player_two_id,
-                player_one_is_bye, player_two_is_bye, duration_minutes, status) VALUES (?, 1, ?, ?, ?, ?, ?, ?, 'draft')"
+                player_one_is_bye, player_two_is_bye, duration_minutes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft')"
         );
+        $roundCount = (int)round(log($capacity, 2));
+        if (2 ** $roundCount !== $capacity) {
+            $db->rollBack();
+            Http::json(['error' => 'De deelnemerslimiet moet een macht van twee zijn.'], 422);
+        }
+        $matchIds = [];
+        for ($round = 1; $round <= $roundCount; $round++) {
+            $matchesInRound = (int)($capacity / (2 ** $round));
+            $duration = $round >= (int)$draw['final_round_starts_at'] ? (int)$draw['final_round_match_minutes'] : (int)$draw['default_match_minutes'];
+            for ($bracketPosition = 1; $bracketPosition <= $matchesInRound; $bracketPosition++) {
+                $insertMatch->execute([$tournamentId, $round, $bracketPosition, null, null, 0, 0, $duration]);
+                $matchIds[$round][$bracketPosition] = (int)$db->lastInsertId();
+            }
+        }
+        $linkMatch = $db->prepare('UPDATE matches SET next_match_id = ?, next_match_slot = ? WHERE id = ?');
+        for ($round = 1; $round < $roundCount; $round++) {
+            foreach ($matchIds[$round] as $bracketPosition => $matchId) {
+                $nextPosition = (int)ceil($bracketPosition / 2);
+                $linkMatch->execute([$matchIds[$round + 1][$nextPosition], $bracketPosition % 2 === 1 ? 'player_one' : 'player_two', $matchId]);
+            }
+        }
+        $setOpeningMatch = $db->prepare(
+            'UPDATE matches SET player_one_id = ?, player_two_id = ?, player_one_is_bye = ?, player_two_is_bye = ?,
+                winner_id = ?, status = ?, completed_at = ?, updated_by = ? WHERE id = ?'
+        );
+        $advanceBye = $db->prepare('UPDATE matches SET player_one_id = IF(? = \'player_one\', ?, player_one_id), player_two_id = IF(? = \'player_two\', ?, player_two_id) WHERE id = ?');
         $matchPosition = 1;
         for ($position = 1; $position <= $capacity; $position += 2) {
             $one = $slots[$position];
             $two = $slots[$position + 1];
-            $insertMatch->execute([$tournamentId, $matchPosition, $one['player_id'], $two['player_id'], $one['is_bye'] ? 1 : 0, $two['is_bye'] ? 1 : 0, (int)$draw['default_match_minutes']]);
+            $byeWinner = $one['is_bye'] ? $two['player_id'] : ($two['is_bye'] ? $one['player_id'] : null);
+            $setOpeningMatch->execute([$one['player_id'], $two['player_id'], $one['is_bye'] ? 1 : 0, $two['is_bye'] ? 1 : 0,
+                $byeWinner, $byeWinner ? 'complete' : 'draft', $byeWinner ? date('Y-m-d H:i:s') : null, $byeWinner ? $user['id'] : null, $matchIds[1][$matchPosition]]);
+            if ($byeWinner !== null && $roundCount > 1) {
+                $slotName = $matchPosition % 2 === 1 ? 'player_one' : 'player_two';
+                $advanceBye->execute([$slotName, $byeWinner, $slotName, $byeWinner, $matchIds[2][(int)ceil($matchPosition / 2)]]);
+            }
             $matchPosition++;
         }
         $db->prepare("UPDATE draws SET status = 'published', published_at = NOW(), published_by = ? WHERE id = ?")->execute([$user['id'], (int)$draw['id']]);
-        Audit::record($db, 'draw.published', 'draw', (int)$draw['id'], $user['id'], $tournamentId, ['matches_created' => $capacity / 2]);
+        Audit::record($db, 'draw.published', 'draw', (int)$draw['id'], $user['id'], $tournamentId, ['matches_created' => $capacity - 1, 'rounds_created' => $roundCount]);
         $db->commit();
         $payload = drawPayload($db, $tournamentId);
-        $payload['matches_created'] = $capacity / 2;
+        $payload['matches_created'] = $capacity - 1;
         Http::json($payload);
+    }
+
+    if ($method === 'GET' && $path === '/api/admin/matches') {
+        Auth::requireRole($db, ['administrator', 'host']);
+        $tournamentId = max(1, (int)($_GET['tournament_id'] ?? 1));
+        Http::json(matchesPayload($db, $tournamentId));
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/matches/(\d+)/winner$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator', 'host']);
+        Auth::verifyCsrf($user);
+        $matchId = (int)$matches[1];
+        $winnerId = (int)(Http::input()['winner_id'] ?? 0);
+        $db->beginTransaction();
+        $statement = $db->prepare('SELECT * FROM matches WHERE id = ? FOR UPDATE');
+        $statement->execute([$matchId]);
+        $match = $statement->fetch();
+        if (!$match) {
+            $db->rollBack();
+            Http::json(['error' => 'Wedstrijd niet gevonden.'], 404);
+        }
+        $participants = array_values(array_filter([(int)($match['player_one_id'] ?? 0), (int)($match['player_two_id'] ?? 0)]));
+        if ($winnerId <= 0 || !in_array($winnerId, $participants, true)) {
+            $db->rollBack();
+            Http::json(['error' => 'Kies één van de spelers in deze wedstrijd.'], 422);
+        }
+        if ((bool)$match['player_one_is_bye'] || (bool)$match['player_two_is_bye'] || count($participants) !== 2) {
+            $db->rollBack();
+            Http::json(['error' => 'Deze wedstrijd kan nog niet handmatig worden afgerond.'], 409);
+        }
+        $corrected = $match['winner_id'] !== null && (int)$match['winner_id'] !== $winnerId;
+        if ($corrected) clearDownstreamResult($db, $match, (int)$user['id']);
+        $db->prepare("UPDATE matches SET winner_id = ?, status = 'complete', completed_at = NOW(), updated_by = ? WHERE id = ?")
+            ->execute([$winnerId, $user['id'], $matchId]);
+        if ($match['next_match_id'] !== null && $match['next_match_slot'] !== null) {
+            $slot = $match['next_match_slot'] === 'player_two' ? 'player_two_id' : 'player_one_id';
+            $db->prepare("UPDATE matches SET {$slot} = ?, updated_by = ? WHERE id = ?")->execute([$winnerId, $user['id'], (int)$match['next_match_id']]);
+        }
+        Audit::record($db, $corrected ? 'match.winner_corrected' : 'match.winner_selected', 'match', $matchId, $user['id'], (int)$match['tournament_id'], ['winner_id' => $winnerId]);
+        $db->commit();
+        Http::json(matchesPayload($db, (int)$match['tournament_id']));
     }
 
     if ($method === 'GET' && $path === '/api/admin/players') {

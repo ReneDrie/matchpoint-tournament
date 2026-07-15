@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** handmatige lotingseditor met conceptopslag, byes en publicatie
+**Laatste afgeronde feature:** volledige bracketprogressie met winnaarselectie en veilige correcties
 
 ## Statuslegenda
 
@@ -14,18 +14,17 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Bracketprogressie en winnaarselectie — fase 3B
+### Wedstrijdplanning — fase 3C
 
-De eerstvolgende aanbevolen bouwstap bouwt verder op de gepubliceerde loting:
+De eerstvolgende aanbevolen bouwstap koppelt de wedstrijden aan banen en tijden:
 
-- Alle vervolgrondes vooraf aanmaken en met `next_match` verbinden.
-- Byes correct naar de volgende ronde verwerken.
-- Wedstrijden per ronde tonen voor Administrator en Host.
-- Eén-tap winnaarselectie met bevestiging.
-- Winnaars automatisch naar de volgende ronde doorzetten.
-- Een correctie veilig terugdraaien en downstream resultaten controleren.
+- “Plan nu”-flow per helft van een ronde en per baan.
+- Standaardduur per ronde toepassen en per wedstrijd kunnen wijzigen.
+- Wedstrijden, pauzes en vrije programmaonderdelen versleepbaar maken.
+- Iedere 30 minuten een pauze van 5 minuten kunnen voorstellen.
+- Conflicten voor spelers, banen en tijden zichtbaar maken.
 
-Deze stap kan beginnen: de handmatige loting publiceert gevalideerde wedstrijden voor ronde 1.
+Deze stap kan beginnen: alle rondes en onderlinge bracketkoppelingen bestaan nu persistent.
 
 ## 0. Technische basis en beheerinterface
 
@@ -101,16 +100,22 @@ Deze stap kan beginnen: de handmatige loting publiceert gevalideerde wedstrijden
 - ✅ Dubbele spelers en ongeldige posities worden in frontend en API voorkomen.
 - ✅ Spelersnummer wordt afgeleid van de positie in de loting.
 - ✅ Publicatievalidatie en aanmaak van wedstrijden voor ronde 1.
+- ✅ Alle knock-outrondes en `next_match`-koppelingen worden bij publicatie aangemaakt.
+- ✅ Bye-winnaars schuiven automatisch door naar de volgende ronde.
+- ✅ Administrator en Host zien alle wedstrijden per ronde.
+- ✅ Eén-tap winnaarselectie met bevestigingsmodal.
+- ✅ Winnaars worden automatisch in de juiste positie van de volgende ronde gezet.
+- ✅ Uitslagen corrigeren wist veilig alle afhankelijke vervolgresultaten.
 - 🟡 Configureerbare wedstrijdduur, kwartfinaleduur en pauzecadans bestaan.
 - 🟡 Wedstrijden en Planning hebben nog een placeholderinterface.
 
 ### Nog nodig
 
-- ⬜ Automatische aanmaak van acht knock-outrondes voor 256 spelers.
-- ⬜ Eén-tap winnaarselectie met bevestiging.
-- ⬜ Winnaar automatisch naar de volgende ronde doorzetten.
-- ⬜ Correctie/undo door Host en Administrator.
-- ⬜ Snelle mobiele hostweergave.
+- ✅ Automatische aanmaak van acht knock-outrondes voor 256 spelers.
+- ✅ Eén-tap winnaarselectie met bevestiging.
+- ✅ Winnaar automatisch naar de volgende ronde doorzetten.
+- ✅ Correctie/undo door Host en Administrator.
+- ✅ Snelle responsive hostweergave.
 - ⬜ “Plan nu”-flow per helft van een ronde en per baan.
 - ⬜ Sleepbare wedstrijden, pauzes en vrije programmaonderdelen.
 - ⬜ Automatische pauzesuggesties en conflictcontrole.

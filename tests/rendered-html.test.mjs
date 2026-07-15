@@ -34,13 +34,14 @@ test("all management URLs can be loaded directly", async () => {
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, drawHooks, modalHooks, router, schema] = await Promise.all([
+  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, drawHooks, matchHooks, modalHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Login/Login.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Players/Players.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Settings/Settings.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Draw/Draw.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Matches/Matches.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Modal/Modal.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
     readFile(new URL("../backend/database/schema.sql", import.meta.url), "utf8"),
@@ -63,10 +64,15 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(router, /tournament\.settings_updated/);
   assert.match(router, /court\.created/);
   assert.match(drawHooks, /\/draw\/publish/);
+  assert.match(matchHooks, /\/matches\/\$\{selected\.match\.id\}\/winner/);
   assert.match(modalHooks, /event\.key !== "Escape"/);
   assert.match(modalHooks, /openModals\.at\(-1\)/);
   assert.match(router, /draw\.saved/);
   assert.match(router, /draw\.published/);
+  assert.match(router, /match\.winner_selected/);
+  assert.match(router, /match\.winner_corrected/);
+  assert.match(router, /clearDownstreamResult/);
+  assert.match(router, /rounds_created/);
   assert.match(schema, /CREATE TABLE draws/);
   assert.match(schema, /CREATE TABLE draw_slots/);
   assert.match(router, /UPDATE courts SET name = \?, surface = \?/);
