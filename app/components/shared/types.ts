@@ -103,6 +103,28 @@ export type TournamentMatch = {
 
 export type MatchesData = { matches: TournamentMatch[]; round_count: number };
 
+export type ScheduleItem = {
+  id: number;
+  tournament_id: number;
+  court_id: number | null;
+  court_name: string | null;
+  item_type: "break" | "ceremony" | "maintenance" | "custom";
+  title: string;
+  starts_at: string;
+  duration_minutes: number;
+  is_tournament_wide: boolean;
+  is_automatic: boolean;
+};
+
+export type ScheduleData = {
+  matches: TournamentMatch[];
+  items: ScheduleItem[];
+  courts: Court[];
+  round_count: number;
+  tournament: { starts_at: string; break_every_minutes: number; break_duration_minutes: number };
+  conflicts: { type: "court" | "player"; message: string; court_id?: number; player_id?: number }[];
+};
+
 export type StaffUser = {
   id: number;
   name: string;

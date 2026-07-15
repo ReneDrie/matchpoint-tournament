@@ -60,6 +60,11 @@ The implemented foundation endpoints are:
 - `POST /api/admin/tournaments/{id}/draw/publish` (Administrator)
 - `GET /api/admin/matches?tournament_id={id}` (Administrator, Host)
 - `POST /api/admin/matches/{id}/winner` (Administrator, Host)
+- `GET /api/admin/tournaments/{id}/schedule` (Administrator, Host)
+- `POST /api/admin/tournaments/{id}/schedule/plan` (Administrator)
+- `PATCH /api/admin/matches/{id}/schedule` (Administrator)
+- `POST/PATCH/DELETE /api/admin/.../schedule/items` (Administrator)
+- `POST /api/admin/tournaments/{id}/schedule/swap` (Administrator)
 
 For local development only, the seeded administrator used for API testing is `info@matchpointtournament.nl` with password `LocalAdmin2027!`. Never reuse this password in production. Create or replace an administrator with:
 

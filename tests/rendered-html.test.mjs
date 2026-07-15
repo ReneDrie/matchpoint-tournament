@@ -34,7 +34,7 @@ test("all management URLs can be loaded directly", async () => {
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, drawHooks, matchHooks, modalHooks, router, schema] = await Promise.all([
+  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, drawHooks, matchHooks, scheduleHooks, modalHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Login/Login.hooks.ts", import.meta.url), "utf8"),
@@ -42,6 +42,7 @@ test("keeps registration configuration and validation wired to the API", async (
     readFile(new URL("../app/components/Settings/Settings.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Draw/Draw.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Matches/Matches.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Schedule/Schedule.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Modal/Modal.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
     readFile(new URL("../backend/database/schema.sql", import.meta.url), "utf8"),
@@ -65,6 +66,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(router, /court\.created/);
   assert.match(drawHooks, /\/draw\/publish/);
   assert.match(matchHooks, /\/matches\/\$\{selected\.match\.id\}\/winner/);
+  assert.match(scheduleHooks, /\/schedule\/plan/);
+  assert.match(scheduleHooks, /\/schedule\/swap/);
   assert.match(modalHooks, /event\.key !== "Escape"/);
   assert.match(modalHooks, /openModals\.at\(-1\)/);
   assert.match(router, /draw\.saved/);
@@ -73,6 +76,10 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(router, /match\.winner_corrected/);
   assert.match(router, /clearDownstreamResult/);
   assert.match(router, /rounds_created/);
+  assert.match(router, /schedule\.round_planned/);
+  assert.match(router, /schedule\.items_swapped/);
+  assert.match(router, /break_every_minutes/);
+  assert.match(schema, /is_automatic BOOLEAN/);
   assert.match(schema, /CREATE TABLE draws/);
   assert.match(schema, /CREATE TABLE draw_slots/);
   assert.match(router, /UPDATE courts SET name = \?, surface = \?/);

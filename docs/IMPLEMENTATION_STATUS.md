@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** volledige bracketprogressie met winnaarselectie en veilige correcties
+**Laatste afgeronde feature:** baanplanning met Plan nu, pauzecadans en versleepbare onderdelen
 
 ## Statuslegenda
 
@@ -14,17 +14,17 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Wedstrijdplanning — fase 3C
+### Presentatiemodus — fase 4A
 
-De eerstvolgende aanbevolen bouwstap koppelt de wedstrijden aan banen en tijden:
+De eerstvolgende aanbevolen bouwstap maakt de openbare schermweergave bruikbaar:
 
-- “Plan nu”-flow per helft van een ronde en per baan.
-- Standaardduur per ronde toepassen en per wedstrijd kunnen wijzigen.
-- Wedstrijden, pauzes en vrije programmaonderdelen versleepbaar maken.
-- Iedere 30 minuten een pauze van 5 minuten kunnen voorstellen.
-- Conflicten voor spelers, banen en tijden zichtbaar maken.
+- Publieke fullscreen presentatieroute bouwen.
+- Slide-editor voor sponsor-, afbeeldings- en dynamische slides.
+- Volgorde, actieve status en duur per slide beheren.
+- Komende wedstrijden en ronde-aankondigingen uit de live planning tonen.
+- Automatisch verversen met offline fallback en “laatst bijgewerkt”.
 
-Deze stap kan beginnen: alle rondes en onderlinge bracketkoppelingen bestaan nu persistent.
+Deze stap kan beginnen: wedstrijden hebben nu actuele tijden en banen voor de live feed.
 
 ## 0. Technische basis en beheerinterface
 
@@ -106,6 +106,12 @@ Deze stap kan beginnen: alle rondes en onderlinge bracketkoppelingen bestaan nu 
 - ✅ Eén-tap winnaarselectie met bevestigingsmodal.
 - ✅ Winnaars worden automatisch in de juiste positie van de volgende ronde gezet.
 - ✅ Uitslagen corrigeren wist veilig alle afhankelijke vervolgresultaten.
+- ✅ “Plan nu” verdeelt iedere ronde in twee helften over twee gekozen banen.
+- ✅ Standaardduur per ronde wordt toegepast en is per wedstrijd aanpasbaar.
+- ✅ Automatische gezamenlijke pauze volgens de ingestelde 30/5-minutencadans.
+- ✅ Vrije onderdelen zoals prijsuitreiking en baanonderhoud toevoegen en wijzigen.
+- ✅ Wedstrijden en baangebonden onderdelen kunnen onderling worden versleept.
+- ✅ Conflicten voor banen en bekende spelers worden direct zichtbaar gemaakt.
 - 🟡 Configureerbare wedstrijdduur, kwartfinaleduur en pauzecadans bestaan.
 - 🟡 Wedstrijden en Planning hebben nog een placeholderinterface.
 
@@ -116,9 +122,9 @@ Deze stap kan beginnen: alle rondes en onderlinge bracketkoppelingen bestaan nu 
 - ✅ Winnaar automatisch naar de volgende ronde doorzetten.
 - ✅ Correctie/undo door Host en Administrator.
 - ✅ Snelle responsive hostweergave.
-- ⬜ “Plan nu”-flow per helft van een ronde en per baan.
-- ⬜ Sleepbare wedstrijden, pauzes en vrije programmaonderdelen.
-- ⬜ Automatische pauzesuggesties en conflictcontrole.
+- ✅ “Plan nu”-flow per helft van een ronde en per baan.
+- ✅ Sleepbare wedstrijden, pauzes en vrije programmaonderdelen.
+- ✅ Automatische pauzesuggesties en conflictcontrole.
 
 ## 4. Presentatiemodus
 

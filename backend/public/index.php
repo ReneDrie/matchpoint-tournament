@@ -174,6 +174,83 @@ function clearDownstreamResult(PDO $db, array $match, int $userId): void
         status = IF(scheduled_at IS NULL, 'draft', 'scheduled'), updated_by = ? WHERE id = ?")->execute([$userId, (int)$next['id']]);
 }
 
+function schedulePayload(PDO $db, int $tournamentId): array
+{
+    $tournament = $db->prepare('SELECT starts_at, break_every_minutes, break_duration_minutes FROM tournaments WHERE id = ? LIMIT 1');
+    $tournament->execute([$tournamentId]);
+    $settings = $tournament->fetch();
+    if (!$settings) Http::json(['error' => 'Toernooi niet gevonden.'], 404);
+    $courts = $db->prepare('SELECT id, tournament_id, name, surface, is_active, sort_order FROM courts WHERE tournament_id = ? ORDER BY sort_order, name');
+    $courts->execute([$tournamentId]);
+    $items = $db->prepare(
+        'SELECT si.id, si.tournament_id, si.court_id, c.name AS court_name, si.item_type, si.title, si.starts_at,
+                si.duration_minutes, si.is_tournament_wide, si.is_automatic
+         FROM schedule_items si LEFT JOIN courts c ON c.id = si.court_id
+         WHERE si.tournament_id = ? ORDER BY si.starts_at, si.sort_order, si.id'
+    );
+    $items->execute([$tournamentId]);
+    $payload = matchesPayload($db, $tournamentId);
+    $scheduleItems = array_map(static function (array $item): array {
+        $item['id'] = (int)$item['id'];
+        $item['tournament_id'] = (int)$item['tournament_id'];
+        $item['court_id'] = $item['court_id'] !== null ? (int)$item['court_id'] : null;
+        $item['duration_minutes'] = (int)$item['duration_minutes'];
+        $item['is_tournament_wide'] = (bool)$item['is_tournament_wide'];
+        $item['is_automatic'] = (bool)$item['is_automatic'];
+        return $item;
+    }, $items->fetchAll());
+    $payload['items'] = $scheduleItems;
+    $payload['courts'] = array_map(static function (array $court): array {
+        foreach (['id', 'tournament_id', 'sort_order'] as $field) $court[$field] = (int)$court[$field];
+        $court['is_active'] = (int)$court['is_active'];
+        return $court;
+    }, $courts->fetchAll());
+    $payload['tournament'] = [
+        'starts_at' => $settings['starts_at'],
+        'break_every_minutes' => (int)$settings['break_every_minutes'],
+        'break_duration_minutes' => (int)$settings['break_duration_minutes'],
+    ];
+    $conflicts = [];
+    $courtEntries = [];
+    foreach ($payload['matches'] as $match) {
+        if ($match['court_id'] === null || $match['scheduled_at'] === null) continue;
+        $courtEntries[$match['court_id']][] = ['start' => strtotime($match['scheduled_at']), 'end' => strtotime($match['scheduled_at']) + $match['duration_minutes'] * 60, 'label' => "Ronde {$match['round_number']} · W{$match['bracket_position']}"];
+    }
+    foreach ($scheduleItems as $item) {
+        if ($item['court_id'] === null || $item['is_tournament_wide']) continue;
+        $courtEntries[$item['court_id']][] = ['start' => strtotime($item['starts_at']), 'end' => strtotime($item['starts_at']) + $item['duration_minutes'] * 60, 'label' => $item['title']];
+    }
+    foreach ($courtEntries as $courtId => $entries) {
+        usort($entries, static fn(array $a, array $b): int => $a['start'] <=> $b['start']);
+        for ($index = 1; $index < count($entries); $index++) if ($entries[$index]['start'] < $entries[$index - 1]['end']) {
+            $conflicts[] = ['type' => 'court', 'court_id' => $courtId, 'message' => "{$entries[$index - 1]['label']} overlapt met {$entries[$index]['label']}."];
+        }
+    }
+    $playerEntries = [];
+    foreach ($payload['matches'] as $match) {
+        if ($match['scheduled_at'] === null) continue;
+        foreach ([$match['player_one_id'], $match['player_two_id']] as $playerId) if ($playerId !== null) {
+            $playerEntries[$playerId][] = ['start' => strtotime($match['scheduled_at']), 'end' => strtotime($match['scheduled_at']) + $match['duration_minutes'] * 60, 'label' => "R{$match['round_number']} · W{$match['bracket_position']}"];
+        }
+    }
+    foreach ($playerEntries as $playerId => $entries) {
+        usort($entries, static fn(array $a, array $b): int => $a['start'] <=> $b['start']);
+        for ($index = 1; $index < count($entries); $index++) if ($entries[$index]['start'] < $entries[$index - 1]['end']) {
+            $conflicts[] = ['type' => 'player', 'player_id' => $playerId, 'message' => "Een speler staat tegelijk gepland voor {$entries[$index - 1]['label']} en {$entries[$index]['label']}."];
+        }
+    }
+    $payload['conflicts'] = $conflicts;
+    return $payload;
+}
+
+function scheduleDateTime(mixed $value): string
+{
+    $normalized = str_replace('T', ' ', trim((string)$value));
+    $date = DateTimeImmutable::createFromFormat('Y-m-d H:i', substr($normalized, 0, 16));
+    if (!$date) Http::json(['error' => 'Kies een geldige datum en tijd.'], 422);
+    return $date->format('Y-m-d H:i:s');
+}
+
 try {
     $db = Database::connect();
 
@@ -591,6 +668,177 @@ try {
         Audit::record($db, $corrected ? 'match.winner_corrected' : 'match.winner_selected', 'match', $matchId, $user['id'], (int)$match['tournament_id'], ['winner_id' => $winnerId]);
         $db->commit();
         Http::json(matchesPayload($db, (int)$match['tournament_id']));
+    }
+
+    if ($method === 'GET' && preg_match('#^/api/admin/tournaments/(\d+)/schedule$#', $path, $matches)) {
+        Auth::requireRole($db, ['administrator', 'host']);
+        Http::json(schedulePayload($db, (int)$matches[1]));
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/tournaments/(\d+)/schedule/plan$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        $data = Http::input();
+        $round = max(1, (int)($data['round_number'] ?? 0));
+        $startsAt = scheduleDateTime($data['starts_at'] ?? '');
+        $courtIds = array_values(array_unique(array_filter([(int)($data['first_court_id'] ?? 0), (int)($data['second_court_id'] ?? 0)])));
+        if (!$courtIds) Http::json(['error' => 'Kies minimaal één baan.'], 422);
+        $placeholders = implode(',', array_fill(0, count($courtIds), '?'));
+        $courtStatement = $db->prepare("SELECT id FROM courts WHERE tournament_id = ? AND is_active = 1 AND id IN ({$placeholders})");
+        $courtStatement->execute(array_merge([$tournamentId], $courtIds));
+        if (count($courtStatement->fetchAll()) !== count($courtIds)) Http::json(['error' => 'Een geselecteerde baan bestaat niet of is inactief.'], 422);
+        $matchStatement = $db->prepare('SELECT id, duration_minutes FROM matches WHERE tournament_id = ? AND round_number = ? ORDER BY bracket_position');
+        $matchStatement->execute([$tournamentId, $round]);
+        $roundMatches = $matchStatement->fetchAll();
+        if (!$roundMatches) Http::json(['error' => 'Deze ronde bevat nog geen wedstrijden.'], 409);
+        $settingsStatement = $db->prepare('SELECT break_every_minutes, break_duration_minutes FROM tournaments WHERE id = ? LIMIT 1');
+        $settingsStatement->execute([$tournamentId]);
+        $settings = $settingsStatement->fetch();
+        if (!$settings) Http::json(['error' => 'Toernooi niet gevonden.'], 404);
+        $firstCount = (int)ceil(count($roundMatches) / 2);
+        $lanes = [array_slice($roundMatches, 0, $firstCount), array_slice($roundMatches, $firstCount)];
+        if ($lanes[1] && count($courtIds) < 2) Http::json(['error' => 'Kies voor beide helften een verschillende baan.'], 422);
+        $cursor = new DateTimeImmutable($startsAt);
+        $elapsed = 0;
+        $breakEvery = (int)$settings['break_every_minutes'];
+        $breakDuration = (int)$settings['break_duration_minutes'];
+        $waves = max(count($lanes[0]), count($lanes[1]));
+        $db->beginTransaction();
+        $db->prepare("DELETE FROM schedule_items WHERE tournament_id = ? AND is_automatic = 1 AND title = ?")
+            ->execute([$tournamentId, "Pauze · Ronde {$round}"]);
+        $scheduleMatch = $db->prepare("UPDATE matches SET court_id = ?, scheduled_at = ?, status = IF(status = 'complete', 'complete', 'scheduled'), updated_by = ? WHERE id = ?");
+        $addBreak = $db->prepare("INSERT INTO schedule_items (tournament_id, item_type, title, starts_at, duration_minutes, is_tournament_wide, is_automatic) VALUES (?, 'break', ?, ?, ?, 1, 1)");
+        for ($wave = 0; $wave < $waves; $wave++) {
+            $waveDuration = 0;
+            foreach ($lanes as $laneIndex => $lane) {
+                if (!isset($lane[$wave])) continue;
+                $courtId = $courtIds[min($laneIndex, count($courtIds) - 1)];
+                $scheduleMatch->execute([$courtId, $cursor->format('Y-m-d H:i:s'), $user['id'], (int)$lane[$wave]['id']]);
+                $waveDuration = max($waveDuration, (int)$lane[$wave]['duration_minutes']);
+            }
+            $cursor = $cursor->modify("+{$waveDuration} minutes");
+            $elapsed += $waveDuration;
+            if ($elapsed >= $breakEvery && $wave < $waves - 1) {
+                $addBreak->execute([$tournamentId, "Pauze · Ronde {$round}", $cursor->format('Y-m-d H:i:s'), $breakDuration]);
+                $cursor = $cursor->modify("+{$breakDuration} minutes");
+                $elapsed = 0;
+            }
+        }
+        Audit::record($db, 'schedule.round_planned', 'tournament', $tournamentId, $user['id'], $tournamentId, ['round_number' => $round, 'matches' => count($roundMatches)]);
+        $db->commit();
+        Http::json(schedulePayload($db, $tournamentId));
+    }
+
+    if ($method === 'PATCH' && preg_match('#^/api/admin/matches/(\d+)/schedule$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $matchId = (int)$matches[1];
+        $data = Http::input();
+        $courtId = (int)($data['court_id'] ?? 0);
+        $duration = (int)($data['duration_minutes'] ?? 0);
+        if ($courtId <= 0 || $duration < 1 || $duration > 60) Http::json(['error' => 'Kies een baan en een duur tussen 1 en 60 minuten.'], 422);
+        $current = $db->prepare('SELECT tournament_id FROM matches WHERE id = ? LIMIT 1');
+        $current->execute([$matchId]);
+        $tournamentId = (int)$current->fetchColumn();
+        if (!$tournamentId) Http::json(['error' => 'Wedstrijd niet gevonden.'], 404);
+        $court = $db->prepare('SELECT id FROM courts WHERE id = ? AND tournament_id = ? AND is_active = 1');
+        $court->execute([$courtId, $tournamentId]);
+        if (!$court->fetch()) Http::json(['error' => 'Baan niet gevonden of inactief.'], 422);
+        $db->prepare("UPDATE matches SET court_id = ?, scheduled_at = ?, duration_minutes = ?, status = IF(status = 'complete', 'complete', 'scheduled'), updated_by = ? WHERE id = ?")
+            ->execute([$courtId, scheduleDateTime($data['starts_at'] ?? ''), $duration, $user['id'], $matchId]);
+        Audit::record($db, 'schedule.match_updated', 'match', $matchId, $user['id'], $tournamentId);
+        Http::json(schedulePayload($db, $tournamentId));
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/tournaments/(\d+)/schedule/items$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        $data = Http::input();
+        $title = trim((string)($data['title'] ?? ''));
+        $type = (string)($data['item_type'] ?? 'custom');
+        $duration = (int)($data['duration_minutes'] ?? 0);
+        $wide = !empty($data['is_tournament_wide']);
+        $courtId = $wide ? null : (int)($data['court_id'] ?? 0);
+        if ($title === '' || !in_array($type, ['break', 'ceremony', 'maintenance', 'custom'], true) || $duration < 1 || $duration > 240) Http::json(['error' => 'Vul een titel, type en geldige duur in.'], 422);
+        if (!$wide && !$courtId) Http::json(['error' => 'Kies een baan of maak het onderdeel toernooibreed.'], 422);
+        if ($courtId) {
+            $court = $db->prepare('SELECT id FROM courts WHERE id = ? AND tournament_id = ?');
+            $court->execute([$courtId, $tournamentId]);
+            if (!$court->fetch()) Http::json(['error' => 'Baan niet gevonden.'], 422);
+        }
+        $db->prepare('INSERT INTO schedule_items (tournament_id, court_id, item_type, title, starts_at, duration_minutes, is_tournament_wide) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$tournamentId, $courtId, $type, $title, scheduleDateTime($data['starts_at'] ?? ''), $duration, $wide ? 1 : 0]);
+        $itemId = (int)$db->lastInsertId();
+        Audit::record($db, 'schedule.item_created', 'schedule_item', $itemId, $user['id'], $tournamentId, ['title' => $title]);
+        Http::json(schedulePayload($db, $tournamentId), 201);
+    }
+
+    if ($method === 'PATCH' && preg_match('#^/api/admin/schedule/items/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $itemId = (int)$matches[1];
+        $data = Http::input();
+        $current = $db->prepare('SELECT tournament_id FROM schedule_items WHERE id = ? LIMIT 1');
+        $current->execute([$itemId]);
+        $tournamentId = (int)$current->fetchColumn();
+        if (!$tournamentId) Http::json(['error' => 'Programmaonderdeel niet gevonden.'], 404);
+        $title = trim((string)($data['title'] ?? ''));
+        $type = (string)($data['item_type'] ?? 'custom');
+        $duration = (int)($data['duration_minutes'] ?? 0);
+        $wide = !empty($data['is_tournament_wide']);
+        $courtId = $wide ? null : (int)($data['court_id'] ?? 0);
+        if ($title === '' || !in_array($type, ['break', 'ceremony', 'maintenance', 'custom'], true) || $duration < 1 || $duration > 240) Http::json(['error' => 'Vul geldige gegevens in.'], 422);
+        if (!$wide) {
+            $court = $db->prepare('SELECT id FROM courts WHERE id = ? AND tournament_id = ?');
+            $court->execute([$courtId, $tournamentId]);
+            if (!$court->fetch()) Http::json(['error' => 'Baan niet gevonden.'], 422);
+        }
+        $db->prepare('UPDATE schedule_items SET court_id = ?, item_type = ?, title = ?, starts_at = ?, duration_minutes = ?, is_tournament_wide = ?, is_automatic = 0 WHERE id = ?')
+            ->execute([$courtId ?: null, $type, $title, scheduleDateTime($data['starts_at'] ?? ''), $duration, $wide ? 1 : 0, $itemId]);
+        Audit::record($db, 'schedule.item_updated', 'schedule_item', $itemId, $user['id'], $tournamentId);
+        Http::json(schedulePayload($db, $tournamentId));
+    }
+
+    if ($method === 'DELETE' && preg_match('#^/api/admin/schedule/items/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $itemId = (int)$matches[1];
+        $current = $db->prepare('SELECT tournament_id FROM schedule_items WHERE id = ? LIMIT 1');
+        $current->execute([$itemId]);
+        $tournamentId = (int)$current->fetchColumn();
+        if (!$tournamentId) Http::json(['error' => 'Programmaonderdeel niet gevonden.'], 404);
+        $db->prepare('DELETE FROM schedule_items WHERE id = ?')->execute([$itemId]);
+        Audit::record($db, 'schedule.item_deleted', 'schedule_item', $itemId, $user['id'], $tournamentId);
+        Http::json(schedulePayload($db, $tournamentId));
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/tournaments/(\d+)/schedule/swap$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        $data = Http::input();
+        $firstKind = ($data['first']['kind'] ?? '') === 'item' ? 'item' : 'match';
+        $secondKind = ($data['second']['kind'] ?? '') === 'item' ? 'item' : 'match';
+        $firstId = (int)($data['first']['id'] ?? 0);
+        $secondId = (int)($data['second']['id'] ?? 0);
+        $table = static fn(string $kind): string => $kind === 'item' ? 'schedule_items' : 'matches';
+        $timeColumn = static fn(string $kind): string => $kind === 'item' ? 'starts_at' : 'scheduled_at';
+        $fetch = static function (PDO $db, string $tableName, string $timeField, int $id, int $tournament): array {
+            $statement = $db->prepare("SELECT id, court_id, {$timeField} AS schedule_time FROM {$tableName} WHERE id = ? AND tournament_id = ? LIMIT 1");
+            $statement->execute([$id, $tournament]);
+            return $statement->fetch() ?: [];
+        };
+        $first = $fetch($db, $table($firstKind), $timeColumn($firstKind), $firstId, $tournamentId);
+        $second = $fetch($db, $table($secondKind), $timeColumn($secondKind), $secondId, $tournamentId);
+        if (!$first || !$second || $first['schedule_time'] === null || $second['schedule_time'] === null) Http::json(['error' => 'Beide onderdelen moeten gepland zijn.'], 422);
+        $db->beginTransaction();
+        $db->prepare('UPDATE ' . $table($firstKind) . ' SET court_id = ?, ' . $timeColumn($firstKind) . ' = ? WHERE id = ?')->execute([$second['court_id'], $second['schedule_time'], $firstId]);
+        $db->prepare('UPDATE ' . $table($secondKind) . ' SET court_id = ?, ' . $timeColumn($secondKind) . ' = ? WHERE id = ?')->execute([$first['court_id'], $first['schedule_time'], $secondId]);
+        Audit::record($db, 'schedule.items_swapped', 'tournament', $tournamentId, $user['id'], $tournamentId, ['first' => $data['first'] ?? null, 'second' => $data['second'] ?? null]);
+        $db->commit();
+        Http::json(schedulePayload($db, $tournamentId));
     }
 
     if ($method === 'GET' && $path === '/api/admin/players') {

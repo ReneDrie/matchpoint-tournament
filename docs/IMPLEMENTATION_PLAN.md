@@ -43,7 +43,7 @@ De actuele voortgang, openstaande onderdelen en eerstvolgende bouwstap staan in 
 - Bracket generation, byes, validation and linked progression. **Implemented.**
 - One-tap winner entry with confirmation, safe correction and automatic advancement. **Implemented.**
 - Fast responsive host view. **Implemented; offline support remains.**
-- Timeline scheduler, round defaults, per-match overrides, cadence breaks and conflict detection.
+- Timeline scheduler, round defaults, per-match overrides, cadence breaks and conflict detection. **Implemented.**
 
 ### 4. Presentation mode
 

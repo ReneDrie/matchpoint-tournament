@@ -26,7 +26,7 @@ export function TournamentApp({ initialView }: { initialView: View }) {
     players: <Players user={app.user} rows={app.playerRows} sponsors={app.sponsors} loading={app.playersLoading} reload={app.reloadCrm} />,
     draw: app.user.role === "administrator" ? <Draw tournamentId={app.tournament?.id ?? 1} user={app.user} /> : <Matches tournamentId={app.tournament?.id ?? 1} user={app.user} />,
     matches: <Matches tournamentId={app.tournament?.id ?? 1} user={app.user} />,
-    schedule: <Schedule />,
+    schedule: <Schedule tournamentId={app.tournament?.id ?? 1} user={app.user} />,
     sponsors: <Sponsors user={app.user} sponsors={app.sponsors} tiers={app.sponsorTiers} players={app.playerRows} reloadSponsors={app.loadSponsors} reloadPlayers={app.loadPlayers} />,
     presentation: <Presentation />,
     settings: app.user.role === "administrator" ? <Settings tournamentId={app.tournament?.id ?? 1} user={app.user} onTournamentSaved={app.loadPublicTournament} /> : <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />,
