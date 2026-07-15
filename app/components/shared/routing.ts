@@ -1,0 +1,23 @@
+import type { View } from "./types";
+
+export const viewRoutes: Record<View, string> = {
+  overview: "/beheer",
+  players: "/beheer/deelnemers",
+  matches: "/beheer/wedstrijden",
+  schedule: "/beheer/planning",
+  sponsors: "/beheer/sponsors",
+  presentation: "/beheer/presentatie",
+  registration: "/",
+};
+
+const frontendBasePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
+
+export const routeHref = (path: string) => `${frontendBasePath}${path === "/" ? "" : path}` || "/";
+
+export function viewFromPath(pathname: string): View {
+  const withoutBase = frontendBasePath && pathname.startsWith(frontendBasePath)
+    ? pathname.slice(frontendBasePath.length) || "/"
+    : pathname;
+  if (withoutBase === "/" || withoutBase === "/inschrijven") return "registration";
+  return (Object.entries(viewRoutes).find(([, path]) => path === withoutBase)?.[0] as View | undefined) ?? "overview";
+}

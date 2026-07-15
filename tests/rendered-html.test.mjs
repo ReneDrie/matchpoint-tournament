@@ -34,23 +34,26 @@ test("all management URLs can be loaded directly", async () => {
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [page, router, schema] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  const [appHooks, registrationHooks, loginHooks, playerHooks, router, schema] = await Promise.all([
+    readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Login/Login.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Players/Players.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
     readFile(new URL("../backend/database/schema.sql", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /\/api\/public\/tournament/);
-  assert.match(page, /\/api\/registrations/);
-  assert.match(page, /\/api\/auth\/login/);
-  assert.match(page, /\/api\/admin\/players/);
-  assert.match(page, /check-in/);
-  assert.match(page, /players\/export/);
-  assert.match(page, /window\.history\.pushState/);
-  assert.match(page, /popstate/);
-  assert.match(page, /date_of_birth/);
-  assert.match(page, /singles_rating/);
-  assert.match(page, /doubles_rating/);
+  assert.match(appHooks, /\/api\/public\/tournament/);
+  assert.match(registrationHooks, /\/api\/registrations/);
+  assert.match(loginHooks, /\/api\/auth\/login/);
+  assert.match(playerHooks, /\/api\/admin\/players/);
+  assert.match(playerHooks, /check-in/);
+  assert.match(playerHooks, /players\/export/);
+  assert.match(appHooks, /window\.history\.pushState/);
+  assert.match(appHooks, /popstate/);
+  assert.match(registrationHooks, /date_of_birth/);
+  assert.match(registrationHooks, /singles_rating/);
+  assert.match(registrationHooks, /doubles_rating/);
   assert.match(router, /minimaal 18 jaar/);
   assert.match(router, /payment_reservation_expires_at/);
   assert.match(schema, /CREATE TABLE tournaments/);

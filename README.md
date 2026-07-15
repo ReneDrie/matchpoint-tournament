@@ -25,6 +25,8 @@ The application uses normal, directly addressable routes:
 
 For the TransIP build, set `NEXT_PUBLIC_BASE_PATH=/tournament`; the same routes are then published below `/tournament`.
 
+React-componenten staan per domein in `app/components/<ComponentName>/`. Componentgebonden state en API-acties staan in een naastgelegen `<ComponentName>.hooks.ts`-bestand; gedeelde types, configuratie en routinghelpers staan in `app/components/shared/`.
+
 ## PHP/MySQL API
 
 Create `.env` from `.env.example`, add a Mollie test API key, then run:
