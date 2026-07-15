@@ -3,6 +3,8 @@ services:
     build: ./backend
     ports:
       - "8080:80"
+    volumes:
+      - ./backend/public/uploads:/var/www/html/public/uploads
     environment:
       APP_ENV: local
       APP_URL: http://localhost:8080

@@ -125,6 +125,26 @@ export type ScheduleData = {
   conflicts: { type: "court" | "player"; message: string; court_id?: number; player_id?: number }[];
 };
 
+export type PresentationSlide = {
+  id: number;
+  tournament_id?: number;
+  type: "custom" | "image" | "sponsor" | "upcoming_matches" | "round_announcement" | "featured_round";
+  title: string | null;
+  content_json: { subtitle?: string; body?: string; round_number?: number } | null;
+  image_path: string | null;
+  image_url: string | null;
+  sponsor_id: number | null;
+  sponsor_name: string | null;
+  sponsor_logo_path: string | null;
+  sponsor_logo_url?: string | null;
+  duration_seconds: number;
+  sort_order: number;
+  is_active: boolean;
+};
+
+export type LiveMatch = { id: number; round_number: number; bracket_position: number; scheduled_at: string | null; court: string | null; player_one: string | null; player_two: string | null };
+export type LivePresentationData = { tournament: TournamentConfig; slides: PresentationSlide[]; upcoming_matches: LiveMatch[]; featured_round: { round_number: number; round_count: number; matches: LiveMatch[] } | null; refreshed_at: string };
+
 export type StaffUser = {
   id: number;
   name: string;

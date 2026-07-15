@@ -251,6 +251,33 @@ function scheduleDateTime(mixed $value): string
     return $date->format('Y-m-d H:i:s');
 }
 
+function publicAssetUrl(?string $path): ?string
+{
+    if (!$path) return null;
+    if (preg_match('#^https?://#', $path)) return $path;
+    return rtrim(getenv('APP_URL') ?: '', '/') . '/' . ltrim($path, '/');
+}
+
+function presentationSlidesPayload(PDO $db, int $tournamentId, bool $activeOnly = false): array
+{
+    $statement = $db->prepare(
+        'SELECT ps.id, ps.tournament_id, ps.type, ps.title, ps.content_json, ps.image_path, ps.sponsor_id,
+                ps.duration_seconds, ps.sort_order, ps.is_active, s.name AS sponsor_name, s.logo_path AS sponsor_logo_path
+         FROM presentation_slides ps LEFT JOIN sponsors s ON s.id = ps.sponsor_id
+         WHERE ps.tournament_id = ?' . ($activeOnly ? ' AND ps.is_active = 1' : '') . ' ORDER BY ps.sort_order, ps.id'
+    );
+    $statement->execute([$tournamentId]);
+    return array_map(static function (array $slide): array {
+        foreach (['id', 'tournament_id', 'duration_seconds', 'sort_order'] as $field) $slide[$field] = (int)$slide[$field];
+        $slide['sponsor_id'] = $slide['sponsor_id'] !== null ? (int)$slide['sponsor_id'] : null;
+        $slide['is_active'] = (bool)$slide['is_active'];
+        $slide['content_json'] = $slide['content_json'] ? json_decode($slide['content_json'], true) : null;
+        $slide['image_url'] = publicAssetUrl($slide['image_path']);
+        $slide['sponsor_logo_url'] = publicAssetUrl($slide['sponsor_logo_path']);
+        return $slide;
+    }, $statement->fetchAll());
+}
+
 try {
     $db = Database::connect();
 
@@ -1075,18 +1102,149 @@ try {
         Http::json(['player_id' => $playerId, 'checked_in' => $checkedIn]);
     }
 
+    if ($method === 'GET' && preg_match('#^/api/admin/tournaments/(\d+)/slides$#', $path, $matches)) {
+        Auth::requireRole($db, ['administrator']);
+        Http::json(['slides' => presentationSlidesPayload($db, (int)$matches[1])]);
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/tournaments/(\d+)/slides$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        $data = Http::input();
+        $type = (string)($data['type'] ?? 'custom');
+        $allowed = ['custom', 'sponsor', 'upcoming_matches', 'round_announcement', 'featured_round'];
+        if (!in_array($type, $allowed, true)) Http::json(['error' => 'Ongeldig slidetype.'], 422);
+        $title = trim((string)($data['title'] ?? '')) ?: null;
+        $duration = min(300, max(3, (int)($data['duration_seconds'] ?? 10)));
+        $sponsorId = $type === 'sponsor' ? (int)($data['sponsor_id'] ?? 0) : null;
+        if ($type === 'custom' && !$title) Http::json(['error' => 'Vul een titel in.'], 422);
+        if ($type === 'sponsor') {
+            $sponsor = $db->prepare('SELECT id FROM sponsors WHERE id = ? AND tournament_id = ? AND is_active = 1');
+            $sponsor->execute([$sponsorId, $tournamentId]);
+            if (!$sponsor->fetch()) Http::json(['error' => 'Kies een actieve sponsor.'], 422);
+        }
+        $order = $db->prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM presentation_slides WHERE tournament_id = ?');
+        $order->execute([$tournamentId]);
+        $content = [
+            'subtitle' => trim((string)($data['subtitle'] ?? '')) ?: null,
+            'body' => trim((string)($data['body'] ?? '')) ?: null,
+            'round_number' => !empty($data['round_number']) ? (int)$data['round_number'] : null,
+        ];
+        $db->prepare('INSERT INTO presentation_slides (tournament_id, type, title, content_json, sponsor_id, duration_seconds, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$tournamentId, $type, $title, json_encode($content, JSON_UNESCAPED_UNICODE), $sponsorId ?: null, $duration, (int)$order->fetchColumn(), !array_key_exists('is_active', $data) || $data['is_active'] ? 1 : 0]);
+        $slideId = (int)$db->lastInsertId();
+        Audit::record($db, 'presentation.slide_created', 'presentation_slide', $slideId, $user['id'], $tournamentId, ['type' => $type]);
+        Http::json(['slides' => presentationSlidesPayload($db, $tournamentId)], 201);
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/tournaments/(\d+)/slides/upload$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) Http::json(['error' => 'Kies een geldige afbeelding.'], 422);
+        $file = $_FILES['image'];
+        if ((int)$file['size'] > 10 * 1024 * 1024) Http::json(['error' => 'De afbeelding mag maximaal 10 MB zijn.'], 422);
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+        $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        if (!isset($extensions[$mime]) || !getimagesize($file['tmp_name'])) Http::json(['error' => 'Alleen JPG, PNG en WebP zijn toegestaan.'], 422);
+        $directory = __DIR__ . '/uploads/presentation';
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) Http::json(['error' => 'De uploadmap kon niet worden aangemaakt.'], 500);
+        $filename = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+        if (!move_uploaded_file($file['tmp_name'], $directory . '/' . $filename)) Http::json(['error' => 'De afbeelding kon niet worden opgeslagen.'], 500);
+        $order = $db->prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM presentation_slides WHERE tournament_id = ?');
+        $order->execute([$tournamentId]);
+        $title = trim((string)($_POST['title'] ?? '')) ?: pathinfo((string)$file['name'], PATHINFO_FILENAME);
+        $duration = min(300, max(3, (int)($_POST['duration_seconds'] ?? 10)));
+        $path = '/uploads/presentation/' . $filename;
+        try {
+            $db->prepare("INSERT INTO presentation_slides (tournament_id, type, title, image_path, duration_seconds, sort_order, is_active) VALUES (?, 'image', ?, ?, ?, ?, 1)")
+                ->execute([$tournamentId, $title, $path, $duration, (int)$order->fetchColumn()]);
+        } catch (Throwable $cause) {
+            if (is_file($directory . '/' . $filename)) unlink($directory . '/' . $filename);
+            throw $cause;
+        }
+        $slideId = (int)$db->lastInsertId();
+        Audit::record($db, 'presentation.image_uploaded', 'presentation_slide', $slideId, $user['id'], $tournamentId, ['mime' => $mime]);
+        Http::json(['slides' => presentationSlidesPayload($db, $tournamentId)], 201);
+    }
+
+    if ($method === 'PATCH' && preg_match('#^/api/admin/slides/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $slideId = (int)$matches[1];
+        $data = Http::input();
+        $current = $db->prepare('SELECT tournament_id, type FROM presentation_slides WHERE id = ? LIMIT 1');
+        $current->execute([$slideId]);
+        $slide = $current->fetch();
+        if (!$slide) Http::json(['error' => 'Slide niet gevonden.'], 404);
+        $title = trim((string)($data['title'] ?? '')) ?: null;
+        $duration = min(300, max(3, (int)($data['duration_seconds'] ?? 10)));
+        $sponsorId = $slide['type'] === 'sponsor' ? (int)($data['sponsor_id'] ?? 0) : null;
+        $content = ['subtitle' => trim((string)($data['subtitle'] ?? '')) ?: null, 'body' => trim((string)($data['body'] ?? '')) ?: null, 'round_number' => !empty($data['round_number']) ? (int)$data['round_number'] : null];
+        $db->prepare('UPDATE presentation_slides SET title = ?, content_json = ?, sponsor_id = ?, duration_seconds = ?, is_active = ? WHERE id = ?')
+            ->execute([$title, json_encode($content, JSON_UNESCAPED_UNICODE), $sponsorId ?: null, $duration, !empty($data['is_active']) ? 1 : 0, $slideId]);
+        Audit::record($db, 'presentation.slide_updated', 'presentation_slide', $slideId, $user['id'], (int)$slide['tournament_id']);
+        Http::json(['slides' => presentationSlidesPayload($db, (int)$slide['tournament_id'])]);
+    }
+
+    if ($method === 'DELETE' && preg_match('#^/api/admin/slides/(\d+)$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $slideId = (int)$matches[1];
+        $current = $db->prepare('SELECT tournament_id, image_path FROM presentation_slides WHERE id = ? LIMIT 1');
+        $current->execute([$slideId]);
+        $slide = $current->fetch();
+        if (!$slide) Http::json(['error' => 'Slide niet gevonden.'], 404);
+        $db->prepare('DELETE FROM presentation_slides WHERE id = ?')->execute([$slideId]);
+        if ($slide['image_path']) {
+            $file = __DIR__ . '/' . ltrim((string)$slide['image_path'], '/');
+            if (is_file($file)) unlink($file);
+        }
+        Audit::record($db, 'presentation.slide_deleted', 'presentation_slide', $slideId, $user['id'], (int)$slide['tournament_id']);
+        Http::json(['slides' => presentationSlidesPayload($db, (int)$slide['tournament_id'])]);
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/tournaments/(\d+)/slides/reorder$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        $ids = array_map('intval', Http::input()['slide_ids'] ?? []);
+        $existing = $db->prepare('SELECT id FROM presentation_slides WHERE tournament_id = ? ORDER BY sort_order, id');
+        $existing->execute([$tournamentId]);
+        $existingIds = array_map('intval', array_column($existing->fetchAll(), 'id'));
+        if (count($ids) !== count($existingIds) || array_diff($ids, $existingIds) || count($ids) !== count(array_unique($ids))) Http::json(['error' => 'De slidevolgorde is ongeldig.'], 422);
+        $db->beginTransaction();
+        $update = $db->prepare('UPDATE presentation_slides SET sort_order = ? WHERE id = ? AND tournament_id = ?');
+        foreach ($ids as $index => $id) $update->execute([$index + 1, $id, $tournamentId]);
+        Audit::record($db, 'presentation.slides_reordered', 'tournament', $tournamentId, $user['id'], $tournamentId);
+        $db->commit();
+        Http::json(['slides' => presentationSlidesPayload($db, $tournamentId)]);
+    }
+
     if ($method === 'GET' && $path === '/api/public/live') {
         $tournament = $db->query("SELECT * FROM tournaments WHERE status IN ('registration','live') ORDER BY starts_at LIMIT 1")->fetch();
         if (!$tournament) Http::json(['error' => 'Er is momenteel geen actief toernooi.'], 404);
         $limit = min(25, max(1, (int)$tournament['upcoming_match_count']));
-        $upcoming = $db->prepare("SELECT m.id, m.round_number, m.scheduled_at, c.name AS court, p1.name AS player_one, p2.name AS player_two
+        $upcoming = $db->prepare("SELECT m.id, m.round_number, m.bracket_position, m.scheduled_at, c.name AS court, p1.name AS player_one, p2.name AS player_two
             FROM matches m LEFT JOIN courts c ON c.id = m.court_id
             LEFT JOIN players p1 ON p1.id = m.player_one_id LEFT JOIN players p2 ON p2.id = m.player_two_id
             WHERE m.tournament_id = ? AND m.status = 'scheduled' ORDER BY m.scheduled_at ASC LIMIT {$limit}");
         $upcoming->execute([(int)$tournament['id']]);
-        $slides = $db->prepare('SELECT id, type, title, content_json, image_path, duration_seconds FROM presentation_slides WHERE tournament_id = ? AND is_active = 1 ORDER BY sort_order');
-        $slides->execute([(int)$tournament['id']]);
-        Http::json(['tournament' => publicTournament($tournament), 'upcoming_matches' => $upcoming->fetchAll(), 'slides' => $slides->fetchAll(), 'refreshed_at' => gmdate(DATE_ATOM)]);
+        $featuredRound = $db->prepare("SELECT MIN(round_number) FROM matches WHERE tournament_id = ? AND round_number >= ? AND status <> 'complete' AND (player_one_id IS NOT NULL OR player_two_id IS NOT NULL)");
+        $featuredRound->execute([(int)$tournament['id'], (int)$tournament['final_round_starts_at']]);
+        $featuredRoundNumber = (int)$featuredRound->fetchColumn();
+        $featured = null;
+        if ($featuredRoundNumber > 0) {
+            $roundCountStatement = $db->prepare('SELECT MAX(round_number) FROM matches WHERE tournament_id = ?');
+            $roundCountStatement->execute([(int)$tournament['id']]);
+            $featuredMatches = $db->prepare("SELECT m.id, m.round_number, m.bracket_position, m.scheduled_at, c.name AS court, p1.name AS player_one, p2.name AS player_two
+                FROM matches m LEFT JOIN courts c ON c.id = m.court_id LEFT JOIN players p1 ON p1.id = m.player_one_id LEFT JOIN players p2 ON p2.id = m.player_two_id
+                WHERE m.tournament_id = ? AND m.round_number = ? ORDER BY m.bracket_position");
+            $featuredMatches->execute([(int)$tournament['id'], $featuredRoundNumber]);
+            $featured = ['round_number' => $featuredRoundNumber, 'round_count' => (int)$roundCountStatement->fetchColumn(), 'matches' => $featuredMatches->fetchAll()];
+        }
+        Http::json(['tournament' => publicTournament($tournament), 'upcoming_matches' => $upcoming->fetchAll(), 'featured_round' => $featured, 'slides' => presentationSlidesPayload($db, (int)$tournament['id'], true), 'refreshed_at' => gmdate(DATE_ATOM)]);
     }
 
     if ($method === 'POST' && $path === '/api/registrations') {

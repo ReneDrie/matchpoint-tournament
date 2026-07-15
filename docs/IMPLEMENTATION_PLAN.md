@@ -47,9 +47,9 @@ De actuele voortgang, openstaande onderdelen en eerstvolgende bouwstap staan in 
 
 ### 4. Presentation mode
 
-- Slide editor for sponsor, custom and dynamic match slides.
-- Per-slide duration, ordering, preview and public full-screen route.
-- Resilient auto-refresh, offline fallback and a visible "last updated" status.
+- Slide editor for sponsor, custom, image and dynamic match slides. **Implemented.**
+- Per-slide duration, ordering, preview and public full-screen route. **Implemented.**
+- Resilient auto-refresh, offline fallback and a visible "last updated" status. **Implemented.**
 
 ### 5. Production readiness
 

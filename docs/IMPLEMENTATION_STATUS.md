@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** baanplanning met Plan nu, pauzecadans en versleepbare onderdelen
+**Laatste afgeronde feature:** openbare fullscreen presentatiemodus met beheerde slides en live planning
 
 ## Statuslegenda
 
@@ -14,17 +14,17 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Presentatiemodus — fase 4A
+### Productie-integraties — fase 5A
 
-De eerstvolgende aanbevolen bouwstap maakt de openbare schermweergave bruikbaar:
+De eerstvolgende aanbevolen bouwstap maakt de inschrijfflow productieklaar:
 
-- Publieke fullscreen presentatieroute bouwen.
-- Slide-editor voor sponsor-, afbeeldings- en dynamische slides.
-- Volgorde, actieve status en duur per slide beheren.
-- Komende wedstrijden en ronde-aankondigingen uit de live planning tonen.
-- Automatisch verversen met offline fallback en “laatst bijgewerkt”.
+- Mollie testbetaling end-to-end doorlopen.
+- Bevestigingspagina en betaalbevestigingsmail afronden.
+- Wachtlijst met uitnodigingsmail implementeren.
+- Brevo-afzender en templates configureren.
+- Veilige e-maillinks voor spelers toevoegen.
 
-Deze stap kan beginnen: wedstrijden hebben nu actuele tijden en banen voor de live feed.
+Deze stap vraagt voor de externe tests om Mollie- en Brevo-testgegevens.
 
 ## 0. Technische basis en beheerinterface
 
@@ -91,7 +91,7 @@ Deze stap kan beginnen: wedstrijden hebben nu actuele tijden en banen voor de li
 
 ## 3. Loting, wedstrijden en planning
 
-### Aanwezig als basis
+### Afgerond
 
 - ✅ Database-entiteiten voor conceptloting, lotingsposities en wedstrijden bestaan.
 - ✅ Handmatige lotingseditor voor 32, 64, 128 of 256 posities.
@@ -130,19 +130,17 @@ Deze stap kan beginnen: wedstrijden hebben nu actuele tijden en banen voor de li
 
 ### Aanwezig als basis
 
-- 🟡 Openbare live-feedendpoint voor slides en komende wedstrijden.
-- 🟡 Databasemodel voor custom-, image-, sponsor- en dynamische slides.
-- 🟡 Beheerplaceholder en schermpreview.
+- ✅ Openbare live-feed voor slides, komende wedstrijden en uitgelichte rondes.
+- ✅ Databasemodel en beheer-API voor custom-, image-, sponsor- en dynamische slides.
+- ✅ Beheereditor met live schermpreview.
 
-### Nog nodig
-
-- ⬜ Slide-editor met volgorde en actieve/inactieve status.
-- ⬜ Fullscreen JPG, PNG en WebP upload met `object-fit: contain`.
-- ⬜ Sponsor- en customslides.
-- ⬜ Komende-wedstrijden- en ronde-aankondigingsslides.
-- ⬜ Instelbare duur per slide.
-- ⬜ Publieke fullscreen presentatieroute.
-- ⬜ Automatisch verversen, offline fallback en “laatst bijgewerkt”.
+- ✅ Slide-editor met volgorde en actieve/inactieve status.
+- ✅ Fullscreen JPG, PNG en WebP upload met `object-fit: contain`.
+- ✅ Sponsor- en customslides.
+- ✅ Komende-wedstrijden- en ronde-aankondigingsslides.
+- ✅ Instelbare duur per slide.
+- ✅ Publieke fullscreen presentatieroute `/presentatie`.
+- ✅ Automatisch verversen iedere vijf seconden, offline fallback en “laatst bijgewerkt”.
 
 ## 5. Productieklaar maken
 

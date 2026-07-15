@@ -28,7 +28,7 @@ export function TournamentApp({ initialView }: { initialView: View }) {
     matches: <Matches tournamentId={app.tournament?.id ?? 1} user={app.user} />,
     schedule: <Schedule tournamentId={app.tournament?.id ?? 1} user={app.user} />,
     sponsors: <Sponsors user={app.user} sponsors={app.sponsors} tiers={app.sponsorTiers} players={app.playerRows} reloadSponsors={app.loadSponsors} reloadPlayers={app.loadPlayers} />,
-    presentation: <Presentation />,
+    presentation: <Presentation tournamentId={app.tournament?.id ?? 1} user={app.user} sponsors={app.sponsors} defaultDuration={app.tournament?.presentation_defaults.slide_seconds ?? 10} />,
     settings: app.user.role === "administrator" ? <Settings tournamentId={app.tournament?.id ?? 1} user={app.user} onTournamentSaved={app.loadPublicTournament} /> : <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />,
   };
 
