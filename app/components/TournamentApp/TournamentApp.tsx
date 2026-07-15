@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Draw } from "../Draw/Draw";
 import { Login } from "../Login/Login";
 import { Matches } from "../Matches/Matches";
 import { Sidebar, Topbar } from "../Navigation/Navigation";
@@ -23,6 +24,7 @@ export function TournamentApp({ initialView }: { initialView: View }) {
   const content: Record<Exclude<View, "registration">, ReactNode> = {
     overview: <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />,
     players: <Players user={app.user} rows={app.playerRows} sponsors={app.sponsors} loading={app.playersLoading} reload={app.reloadCrm} />,
+    draw: app.user.role === "administrator" ? <Draw tournamentId={app.tournament?.id ?? 1} user={app.user} /> : <Matches />,
     matches: <Matches />,
     schedule: <Schedule />,
     sponsors: <Sponsors user={app.user} sponsors={app.sponsors} tiers={app.sponsorTiers} players={app.playerRows} reloadSponsors={app.loadSponsors} reloadPlayers={app.loadPlayers} />,

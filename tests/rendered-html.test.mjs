@@ -26,7 +26,7 @@ test("server-renders public registration at the root", async () => {
 });
 
 test("all management URLs can be loaded directly", async () => {
-  for (const pathname of ["/beheer", "/beheer/deelnemers", "/beheer/wedstrijden", "/beheer/planning", "/beheer/sponsors", "/beheer/presentatie", "/beheer/instellingen"]) {
+  for (const pathname of ["/beheer", "/beheer/deelnemers", "/beheer/loting", "/beheer/wedstrijden", "/beheer/planning", "/beheer/sponsors", "/beheer/presentatie", "/beheer/instellingen"]) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     assert.match(await response.text(), /Beveiligde omgeving laden/i, pathname);
@@ -34,12 +34,13 @@ test("all management URLs can be loaded directly", async () => {
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, router, schema] = await Promise.all([
+  const [appHooks, registrationHooks, loginHooks, playerHooks, settingsHooks, drawHooks, router, schema] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Login/Login.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Players/Players.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Settings/Settings.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Draw/Draw.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
     readFile(new URL("../backend/database/schema.sql", import.meta.url), "utf8"),
   ]);
@@ -60,6 +61,11 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(settingsHooks, /surface/);
   assert.match(router, /tournament\.settings_updated/);
   assert.match(router, /court\.created/);
+  assert.match(drawHooks, /\/draw\/publish/);
+  assert.match(router, /draw\.saved/);
+  assert.match(router, /draw\.published/);
+  assert.match(schema, /CREATE TABLE draws/);
+  assert.match(schema, /CREATE TABLE draw_slots/);
   assert.match(router, /UPDATE courts SET name = \?, surface = \?/);
   assert.match(router, /minimaal 18 jaar/);
   assert.match(router, /payment_reservation_expires_at/);

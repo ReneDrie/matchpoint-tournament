@@ -15,7 +15,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: ' . (getenv('FRONTEND_URL') ?: 'http://localhost:3000'));
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
-header('Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Cache-Control: no-store');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -75,6 +75,61 @@ function adminTournament(array $row): array
         'daily_summary_email' => $row['daily_summary_email'],
         'daily_summary_time' => substr((string)$row['daily_summary_time'], 0, 5),
     ]);
+}
+
+function drawPayload(PDO $db, int $tournamentId): array
+{
+    $tournament = $db->prepare('SELECT id, capacity FROM tournaments WHERE id = ? LIMIT 1');
+    $tournament->execute([$tournamentId]);
+    $edition = $tournament->fetch();
+    if (!$edition) Http::json(['error' => 'Toernooi niet gevonden.'], 404);
+    $capacity = (int)$edition['capacity'];
+    $drawStatement = $db->prepare('SELECT id, status, bracket_size, published_at, updated_at FROM draws WHERE tournament_id = ? LIMIT 1');
+    $drawStatement->execute([$tournamentId]);
+    $draw = $drawStatement->fetch();
+    $assigned = [];
+    if ($draw) {
+        $slotStatement = $db->prepare(
+            'SELECT ds.position, ds.player_id, ds.is_bye, p.name AS player_name, p.email AS player_email, p.registration_status, s.name AS sponsor_name
+             FROM draw_slots ds LEFT JOIN players p ON p.id = ds.player_id LEFT JOIN sponsors s ON s.id = p.sponsor_id
+             WHERE ds.draw_id = ? ORDER BY ds.position'
+        );
+        $slotStatement->execute([(int)$draw['id']]);
+        foreach ($slotStatement->fetchAll() as $slot) $assigned[(int)$slot['position']] = $slot;
+    }
+    $slots = [];
+    for ($position = 1; $position <= $capacity; $position++) {
+        $slot = $assigned[$position] ?? null;
+        $slots[] = [
+            'position' => $position,
+            'player_id' => $slot && $slot['player_id'] !== null ? (int)$slot['player_id'] : null,
+            'is_bye' => $slot ? (bool)$slot['is_bye'] : false,
+            'player' => $slot && $slot['player_id'] !== null ? [
+                'id' => (int)$slot['player_id'],
+                'name' => $slot['player_name'],
+                'email' => $slot['player_email'],
+                'sponsor_name' => $slot['sponsor_name'],
+                'registration_status' => $slot['registration_status'],
+            ] : null,
+        ];
+    }
+    $players = $db->prepare(
+        "SELECT p.id, p.name, p.email, p.player_number, s.name AS sponsor_name
+         FROM players p LEFT JOIN sponsors s ON s.id = p.sponsor_id
+         WHERE p.tournament_id = ? AND p.registration_status = 'confirmed' ORDER BY p.name"
+    );
+    $players->execute([$tournamentId]);
+    return [
+        'draw' => [
+            'id' => $draw ? (int)$draw['id'] : null,
+            'status' => $draw['status'] ?? 'draft',
+            'bracket_size' => $draw ? (int)$draw['bracket_size'] : $capacity,
+            'published_at' => $draw['published_at'] ?? null,
+            'updated_at' => $draw['updated_at'] ?? null,
+        ],
+        'slots' => $slots,
+        'players' => $players->fetchAll(),
+    ];
 }
 
 try {
@@ -306,6 +361,120 @@ try {
         $db->prepare('DELETE FROM courts WHERE id = ?')->execute([$courtId]);
         Audit::record($db, 'court.deleted', 'court', $courtId, $user['id'], (int)$court['tournament_id'], ['name' => $court['name']]);
         Http::json(['court_id' => $courtId, 'deleted' => true]);
+    }
+
+    if ($method === 'GET' && preg_match('#^/api/admin/tournaments/(\d+)/draw$#', $path, $matches)) {
+        Auth::requireRole($db, ['administrator']);
+        Http::json(drawPayload($db, (int)$matches[1]));
+    }
+
+    if ($method === 'PUT' && preg_match('#^/api/admin/tournaments/(\d+)/draw$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        $data = Http::input();
+        $tournament = $db->prepare('SELECT id, capacity FROM tournaments WHERE id = ? LIMIT 1');
+        $tournament->execute([$tournamentId]);
+        $edition = $tournament->fetch();
+        if (!$edition) Http::json(['error' => 'Toernooi niet gevonden.'], 404);
+        $capacity = (int)$edition['capacity'];
+        $slots = $data['slots'] ?? null;
+        if (!is_array($slots) || count($slots) !== $capacity) Http::json(['error' => "De loting moet exact {$capacity} posities bevatten."], 422);
+        $normalized = [];
+        $positions = [];
+        $playerIds = [];
+        foreach ($slots as $slot) {
+            if (!is_array($slot)) Http::json(['error' => 'Een positie in de loting is ongeldig.'], 422);
+            $position = (int)($slot['position'] ?? 0);
+            $playerId = !empty($slot['player_id']) ? (int)$slot['player_id'] : null;
+            $isBye = !empty($slot['is_bye']);
+            if ($position < 1 || $position > $capacity || isset($positions[$position])) Http::json(['error' => 'De loting bevat een dubbele of ongeldige positie.'], 422);
+            if ($playerId !== null && $isBye) Http::json(['error' => "Positie {$position} kan niet tegelijk een speler en een bye bevatten."], 422);
+            if ($playerId !== null && isset($playerIds[$playerId])) Http::json(['error' => 'Een speler kan maar één keer in de loting staan.'], 422);
+            $positions[$position] = true;
+            if ($playerId !== null) $playerIds[$playerId] = true;
+            $normalized[$position] = ['player_id' => $playerId, 'is_bye' => $isBye];
+        }
+        if (count($positions) !== $capacity) Http::json(['error' => 'Niet alle posities zijn aanwezig.'], 422);
+        if ($playerIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
+            $validPlayers = $db->prepare("SELECT COUNT(*) FROM players WHERE tournament_id = ? AND registration_status = 'confirmed' AND id IN ({$placeholders})");
+            $validPlayers->execute(array_merge([$tournamentId], array_keys($playerIds)));
+            if ((int)$validPlayers->fetchColumn() !== count($playerIds)) Http::json(['error' => 'De loting bevat een speler die niet (meer) betaald is.'], 422);
+        }
+        ksort($normalized);
+        $db->beginTransaction();
+        $db->prepare(
+            "INSERT INTO draws (tournament_id, status, bracket_size) VALUES (?, 'draft', ?)
+             ON DUPLICATE KEY UPDATE status = 'draft', bracket_size = VALUES(bracket_size), published_at = NULL, published_by = NULL, updated_at = NOW()"
+        )->execute([$tournamentId, $capacity]);
+        $drawIdStatement = $db->prepare('SELECT id FROM draws WHERE tournament_id = ?');
+        $drawIdStatement->execute([$tournamentId]);
+        $drawId = (int)$drawIdStatement->fetchColumn();
+        $db->prepare('DELETE FROM draw_slots WHERE draw_id = ?')->execute([$drawId]);
+        $insertSlot = $db->prepare('INSERT INTO draw_slots (draw_id, position, player_id, is_bye) VALUES (?, ?, ?, ?)');
+        foreach ($normalized as $position => $slot) {
+            if ($slot['player_id'] === null && !$slot['is_bye']) continue;
+            $insertSlot->execute([$drawId, $position, $slot['player_id'], $slot['is_bye'] ? 1 : 0]);
+        }
+        $db->prepare('UPDATE players SET player_number = NULL WHERE tournament_id = ?')->execute([$tournamentId]);
+        $assignNumber = $db->prepare('UPDATE players SET player_number = ? WHERE id = ? AND tournament_id = ?');
+        foreach ($normalized as $position => $slot) if ($slot['player_id'] !== null) $assignNumber->execute([$position, $slot['player_id'], $tournamentId]);
+        $db->prepare('DELETE FROM matches WHERE tournament_id = ?')->execute([$tournamentId]);
+        Audit::record($db, 'draw.saved', 'draw', $drawId, $user['id'], $tournamentId, ['assigned_players' => count($playerIds)]);
+        $db->commit();
+        Http::json(drawPayload($db, $tournamentId));
+    }
+
+    if ($method === 'POST' && preg_match('#^/api/admin/tournaments/(\d+)/draw/publish$#', $path, $matches)) {
+        $user = Auth::requireRole($db, ['administrator']);
+        Auth::verifyCsrf($user);
+        $tournamentId = (int)$matches[1];
+        $drawStatement = $db->prepare(
+            'SELECT d.id, d.bracket_size, t.capacity, t.default_match_minutes FROM draws d JOIN tournaments t ON t.id = d.tournament_id WHERE d.tournament_id = ? LIMIT 1'
+        );
+        $drawStatement->execute([$tournamentId]);
+        $draw = $drawStatement->fetch();
+        if (!$draw) Http::json(['error' => 'Sla eerst een conceptloting op.'], 409);
+        $capacity = (int)$draw['capacity'];
+        if ((int)$draw['bracket_size'] !== $capacity) Http::json(['error' => 'De grootte van de loting komt niet overeen met de huidige deelnemerslimiet.'], 409);
+        $slotsStatement = $db->prepare(
+            'SELECT ds.position, ds.player_id, ds.is_bye, p.registration_status FROM draw_slots ds LEFT JOIN players p ON p.id = ds.player_id WHERE ds.draw_id = ? ORDER BY ds.position'
+        );
+        $slotsStatement->execute([(int)$draw['id']]);
+        $rows = $slotsStatement->fetchAll();
+        if (count($rows) !== $capacity) Http::json(['error' => 'Vul iedere positie met een speler of bye voordat je publiceert.'], 422);
+        $slots = [];
+        foreach ($rows as $slot) {
+            $position = (int)$slot['position'];
+            $playerId = $slot['player_id'] !== null ? (int)$slot['player_id'] : null;
+            $isBye = (bool)$slot['is_bye'];
+            if (($playerId === null) === !$isBye) Http::json(['error' => "Positie {$position} is ongeldig."], 422);
+            if ($playerId !== null && $slot['registration_status'] !== 'confirmed') Http::json(['error' => "De speler op positie {$position} is niet meer betaald."], 422);
+            $slots[$position] = ['player_id' => $playerId, 'is_bye' => $isBye];
+        }
+        for ($position = 1; $position <= $capacity; $position += 2) {
+            if ($slots[$position]['is_bye'] && $slots[$position + 1]['is_bye']) Http::json(['error' => "Wedstrijd " . ((int)(($position + 1) / 2)) . ' bevat twee byes. Plaats minimaal één speler.'], 422);
+        }
+        $db->beginTransaction();
+        $db->prepare('DELETE FROM matches WHERE tournament_id = ?')->execute([$tournamentId]);
+        $insertMatch = $db->prepare(
+            "INSERT INTO matches (tournament_id, round_number, bracket_position, player_one_id, player_two_id,
+                player_one_is_bye, player_two_is_bye, duration_minutes, status) VALUES (?, 1, ?, ?, ?, ?, ?, ?, 'draft')"
+        );
+        $matchPosition = 1;
+        for ($position = 1; $position <= $capacity; $position += 2) {
+            $one = $slots[$position];
+            $two = $slots[$position + 1];
+            $insertMatch->execute([$tournamentId, $matchPosition, $one['player_id'], $two['player_id'], $one['is_bye'] ? 1 : 0, $two['is_bye'] ? 1 : 0, (int)$draw['default_match_minutes']]);
+            $matchPosition++;
+        }
+        $db->prepare("UPDATE draws SET status = 'published', published_at = NOW(), published_by = ? WHERE id = ?")->execute([$user['id'], (int)$draw['id']]);
+        Audit::record($db, 'draw.published', 'draw', (int)$draw['id'], $user['id'], $tournamentId, ['matches_created' => $capacity / 2]);
+        $db->commit();
+        $payload = drawPayload($db, $tournamentId);
+        $payload['matches_created'] = $capacity / 2;
+        Http::json($payload);
     }
 
     if ($method === 'GET' && $path === '/api/admin/players') {

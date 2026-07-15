@@ -39,8 +39,8 @@ De actuele voortgang, openstaande onderdelen en eerstvolgende bouwstap staan in 
 
 ### 3. Draw, matches and schedule
 
-- Manual 256-slot draw editor with duplicate-player prevention.
-- Bracket generation, byes, validation and locked/published states.
+- Manual 256-slot draw editor with duplicate-player prevention. **Implemented.**
+- Bracket generation, byes, validation and locked/published states. **Draft/publish and round 1 implemented; full progression remains.**
 - One-tap winner entry with confirmation/undo and automatic advancement.
 - Fast host view optimized for phones and poor venue Wi-Fi.
 - Timeline scheduler, round defaults, per-match overrides, cadence breaks and conflict detection.

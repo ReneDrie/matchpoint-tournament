@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** betrouwbare automatische opslag van baaninstellingen (`d0ea257`)
+**Laatste afgeronde feature:** handmatige lotingseditor met conceptopslag, byes en publicatie
 
 ## Statuslegenda
 
@@ -14,19 +14,18 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Handmatige loting — fase 3A
+### Bracketprogressie en winnaarselectie — fase 3B
 
-De eerstvolgende aanbevolen bouwstap is een Administrator-editor voor de handmatige loting:
+De eerstvolgende aanbevolen bouwstap bouwt verder op de gepubliceerde loting:
 
-- 32, 64, 128 of 256 posities op basis van de toernooi-instellingen.
-- Per positie één betaalde deelnemer of expliciete bye selecteren.
-- Dezelfde speler kan niet tweemaal worden geplaatst.
-- Spelersnummers worden afgeleid van de positie in het schema.
-- Concept opslaan zonder de loting direct te publiceren.
-- Validatie vóór publiceren.
-- Na publiceren worden de wedstrijden voor ronde 1 aangemaakt.
+- Alle vervolgrondes vooraf aanmaken en met `next_match` verbinden.
+- Byes correct naar de volgende ronde verwerken.
+- Wedstrijden per ronde tonen voor Administrator en Host.
+- Eén-tap winnaarselectie met bevestiging.
+- Winnaars automatisch naar de volgende ronde doorzetten.
+- Een correctie veilig terugdraaien en downstream resultaten controleren.
 
-Deze stap kan beginnen: deelnemers, capaciteit, rollen, databasebasis en toernooi-instellingen zijn aanwezig.
+Deze stap kan beginnen: de handmatige loting publiceert gevalideerde wedstrijden voor ronde 1.
 
 ## 0. Technische basis en beheerinterface
 
@@ -95,14 +94,18 @@ Deze stap kan beginnen: deelnemers, capaciteit, rollen, databasebasis en toernoo
 
 ### Aanwezig als basis
 
-- 🟡 Database-entiteiten voor wedstrijden, banen en planning bestaan.
+- ✅ Database-entiteiten voor conceptloting, lotingsposities en wedstrijden bestaan.
+- ✅ Handmatige lotingseditor voor 32, 64, 128 of 256 posities.
+- ✅ Betaalde spelers en expliciete byes per positie plaatsen.
+- ✅ Automatische conceptopslag en blokweergave per 32 posities.
+- ✅ Dubbele spelers en ongeldige posities worden in frontend en API voorkomen.
+- ✅ Spelersnummer wordt afgeleid van de positie in de loting.
+- ✅ Publicatievalidatie en aanmaak van wedstrijden voor ronde 1.
 - 🟡 Configureerbare wedstrijdduur, kwartfinaleduur en pauzecadans bestaan.
-- 🟡 Placeholderroutes voor Wedstrijden en Planning bestaan.
+- 🟡 Wedstrijden en Planning hebben nog een placeholderinterface.
 
 ### Nog nodig
 
-- ⬜ Handmatige lotingseditor met byes en dubbele-spelercontrole.
-- ⬜ Concept-, validatie- en publicatiestatus voor de loting.
 - ⬜ Automatische aanmaak van acht knock-outrondes voor 256 spelers.
 - ⬜ Eén-tap winnaarselectie met bevestiging.
 - ⬜ Winnaar automatisch naar de volgende ronde doorzetten.

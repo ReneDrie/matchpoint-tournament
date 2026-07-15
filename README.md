@@ -18,6 +18,7 @@ The application uses normal, directly addressable routes:
 - `/` and `/inschrijven` — public registration
 - `/beheer` — staff overview
 - `/beheer/deelnemers`
+- `/beheer/loting` — manual draw editor for Administrators
 - `/beheer/wedstrijden`
 - `/beheer/planning`
 - `/beheer/sponsors`
@@ -55,6 +56,8 @@ The implemented foundation endpoints are:
 - `GET/POST /api/admin/tournaments/{id}/courts` (Administrator)
 - `PATCH/DELETE /api/admin/courts/{id}` (Administrator)
 - `GET /api/admin/players` (staff)
+- `GET/PUT /api/admin/tournaments/{id}/draw` (Administrator)
+- `POST /api/admin/tournaments/{id}/draw/publish` (Administrator)
 
 For local development only, the seeded administrator used for API testing is `info@matchpointtournament.nl` with password `LocalAdmin2027!`. Never reuse this password in production. Create or replace an administrator with:
 

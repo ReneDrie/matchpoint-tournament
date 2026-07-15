@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS draws (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tournament_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  bracket_size SMALLINT UNSIGNED NOT NULL,
+  published_at DATETIME NULL,
+  published_by BIGINT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT draws_tournament_fk FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE,
+  CONSTRAINT draws_published_by_fk FOREIGN KEY (published_by) REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE KEY draws_tournament_unique (tournament_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS draw_slots (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  draw_id BIGINT UNSIGNED NOT NULL,
+  position SMALLINT UNSIGNED NOT NULL,
+  player_id BIGINT UNSIGNED NULL,
+  is_bye BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT draw_slots_draw_fk FOREIGN KEY (draw_id) REFERENCES draws(id) ON DELETE CASCADE,
+  CONSTRAINT draw_slots_player_fk FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL,
+  UNIQUE KEY draw_slots_position_unique (draw_id, position),
+  UNIQUE KEY draw_slots_player_unique (draw_id, player_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

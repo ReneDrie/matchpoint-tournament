@@ -3,6 +3,7 @@ import type { View } from "./types";
 export const viewRoutes: Record<View, string> = {
   overview: "/beheer",
   players: "/beheer/deelnemers",
+  draw: "/beheer/loting",
   matches: "/beheer/wedstrijden",
   schedule: "/beheer/planning",
   sponsors: "/beheer/sponsors",

@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 
-export type View = "overview" | "players" | "matches" | "schedule" | "sponsors" | "presentation" | "settings" | "registration";
+export type View = "overview" | "players" | "draw" | "matches" | "schedule" | "sponsors" | "presentation" | "settings" | "registration";
 
 export type Navigate = (view: View, event?: MouseEvent<HTMLAnchorElement>) => void;
 
@@ -50,6 +50,32 @@ export type Court = {
   is_active: number;
   sort_order: number;
 };
+
+export type DrawPlayer = {
+  id: number;
+  name: string;
+  email: string;
+  player_number: number | null;
+  sponsor_name: string | null;
+  registration_status?: string;
+};
+
+export type DrawSlot = {
+  position: number;
+  player_id: number | null;
+  is_bye: boolean;
+  player: DrawPlayer | null;
+};
+
+export type TournamentDraw = {
+  id: number | null;
+  status: "draft" | "published";
+  bracket_size: number;
+  published_at: string | null;
+  updated_at: string | null;
+};
+
+export type DrawData = { draw: TournamentDraw; slots: DrawSlot[]; players: DrawPlayer[] };
 
 export type StaffUser = {
   id: number;
