@@ -6,6 +6,7 @@ import { API_URL } from "../shared/config";
 import type { Court, StaffUser, TournamentSettings } from "../shared/types";
 
 type SettingsForm = Omit<TournamentSettings, "registration_price" | "schedule_defaults" | "presentation_defaults" | "venue" | "confirmed_players" | "registration_available" | "active_courts">;
+export type SettingsTab = "general" | "planning" | "presentation" | "courts";
 
 function toInputDate(value: string) {
   return value.replace(" ", "T").slice(0, 16);
@@ -28,6 +29,7 @@ export function useSettings({ tournamentId, user, onTournamentSaved }: { tournam
   const [success, setSuccess] = useState("");
   const [newCourtName, setNewCourtName] = useState("");
   const [newCourtSurface, setNewCourtSurface] = useState("");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 
   async function load() {
     setLoading(true);
@@ -127,7 +129,7 @@ export function useSettings({ tournamentId, user, onTournamentSaved }: { tournam
     await Promise.all([reloadCourts(), onTournamentSaved()]);
   }
 
-  return { form, update, courts, loading, busy, error, setError, success, save, newCourtName, setNewCourtName, newCourtSurface, setNewCourtSurface, createCourt, courtSaved };
+  return { form, update, courts, loading, busy, error, setError, success, save, newCourtName, setNewCourtName, newCourtSurface, setNewCourtSurface, createCourt, courtSaved, activeTab, setActiveTab };
 }
 
 export function useCourtEditor({ court, user, saved, onError }: { court: Court; user: StaffUser; saved: () => Promise<void>; onError: (message: string) => void }) {
