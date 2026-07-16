@@ -26,6 +26,7 @@ The application uses normal, directly addressable routes:
 - `/beheer/presentatie`
 - `/beheer/email` — handmatige e-mails aan gefilterde of geselecteerde deelnemers
 - `/presentatie` — openbare fullscreen livepresentatie
+- `/toernooi` — publiek programma, gepubliceerd knock-outschema, uitslagen en sponsors
 - `/beheer/instellingen` — Administrator settings and court management
 - `/beheer/uitnodiging` — veilige activatie van een Host-account
 
@@ -61,6 +62,7 @@ The implemented foundation endpoints are:
 - `GET /api/health`
 - `GET /api/public/tournament`
 - `GET /api/public/live`
+- `GET /api/public/tournament-page`
 - `POST /api/registrations`
 - `POST /api/waitlist`
 - `GET /api/waitlist/invitation?token={token}`

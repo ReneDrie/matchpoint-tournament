@@ -172,6 +172,54 @@ export type LivePresentationData = {
   refreshed_at: string;
 };
 
+export type PublicTournamentTab = "schedule" | "bracket" | "results";
+
+export type PublicMatch = {
+  id: number;
+  round_number: number;
+  bracket_position: number;
+  scheduled_at: string | null;
+  duration_minutes: number;
+  status: "draft" | "scheduled" | "ready" | "complete";
+  completed_at: string | null;
+  court_name: string | null;
+  player_one_name: string | null;
+  player_one_number: number | null;
+  player_two_name: string | null;
+  player_two_number: number | null;
+  winner_name: string | null;
+  winner_number: number | null;
+  winner_side: "one" | "two" | null;
+};
+
+export type PublicScheduleItem = {
+  id: number;
+  item_type: "break" | "ceremony" | "maintenance" | "custom";
+  title: string;
+  starts_at: string;
+  duration_minutes: number;
+  is_tournament_wide: boolean;
+  court_name: string | null;
+};
+
+export type PublicSponsor = {
+  id: number;
+  name: string;
+  website_url: string | null;
+  logo_url: string | null;
+  tier_name: string | null;
+};
+
+export type PublicTournamentData = {
+  tournament: TournamentConfig;
+  draw: { published: boolean; published_at: string | null };
+  round_count: number;
+  matches: PublicMatch[];
+  schedule_items: PublicScheduleItem[];
+  sponsors: PublicSponsor[];
+  refreshed_at: string;
+};
+
 export type StaffUser = {
   id: number;
   name: string;

@@ -2,6 +2,7 @@
 
 import { Brand } from "../Brand/Brand";
 import { SHOW_ADMIN_SHORTCUT } from "../shared/config";
+import { routeHref } from "../shared/routing";
 import type { TournamentConfig } from "../shared/types";
 import { useRegistrationForm } from "./Registration.hooks";
 import { WaitlistForm } from "./WaitlistForm";
@@ -31,7 +32,10 @@ export function Registration({ close, tournament }: { close: () => void; tournam
     <div className="registration-page">
       <header>
         <Brand />
-        {SHOW_ADMIN_SHORTCUT && <button onClick={close}>Beheeromgeving →</button>}
+        <div className="public-registration-links">
+          <a href={routeHref("/toernooi")}>Toernooischema →</a>
+          {SHOW_ADMIN_SHORTCUT && <button onClick={close}>Beheeromgeving →</button>}
+        </div>
       </header>
       <main>
         <div className="registration-intro">

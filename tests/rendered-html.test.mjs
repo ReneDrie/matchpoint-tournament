@@ -55,6 +55,12 @@ test("server-renders the public presentation directly", async () => {
   assert.match(await response.text(), /Live presentatie laden/i);
 });
 
+test("server-renders the public tournament page directly", async () => {
+  const response = await render("/toernooi");
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /Toernooipagina laden/i);
+});
+
 test("server-renders the payment confirmation directly", async () => {
   const response = await render("/inschrijven/bevestiging?token=test");
   assert.equal(response.status, 200);
@@ -88,6 +94,7 @@ test("keeps registration configuration and validation wired to the API", async (
     scheduleHooks,
     presentationHooks,
     communicationHooks,
+    publicTournamentHooks,
     modalHooks,
     router,
     schema,
@@ -104,6 +111,7 @@ test("keeps registration configuration and validation wired to the API", async (
     readFile(new URL("../app/components/Schedule/Schedule.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Presentation/Presentation.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Communications/Communications.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/PublicTournament/PublicTournament.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Modal/Modal.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
     readFile(new URL("../backend/database/schema.sql", import.meta.url), "utf8"),
@@ -140,6 +148,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(presentationHooks, /\/slides\/upload/);
   assert.match(presentationHooks, /\/slides\/reorder/);
   assert.match(communicationHooks, /\/api\/admin\/emails\/broadcast/);
+  assert.match(publicTournamentHooks, /\/api\/public\/tournament-page/);
+  assert.match(router, /publicTournamentPagePayload/);
   assert.match(router, /email\.broadcast_sent/);
   assert.match(modalHooks, /event\.key !== "Escape"/);
   assert.match(modalHooks, /openModals\.at\(-1\)/);

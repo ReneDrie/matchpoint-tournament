@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 15 juli 2026  
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Brevo-integratie, e-mailtemplates en handmatige deelnemersmailing
+**Laatste afgeronde feature:** Publieke toernooipagina met programma, schema, uitslagen en sponsors
 
 ## Statuslegenda
 
@@ -144,6 +144,16 @@ Brevo en Mollie zijn lokaal met geldige testgegevens geverifieerd.
 - ✅ Instelbare duur per slide.
 - ✅ Publieke fullscreen presentatieroute `/presentatie`.
 - ✅ Automatisch verversen iedere vijf seconden, offline fallback en “laatst bijgewerkt”.
+
+## 4B. Publieke toernooipagina
+
+- ✅ Openbare route `/toernooi`, geschikt voor mobiel en desktop.
+- ✅ Gepubliceerde knock-outloting per ronde met spelersnummers en winnaars.
+- ✅ Chronologisch programma met wedstrijden, pauzes en vrije onderdelen.
+- ✅ Automatisch bijgewerkt uitslagenoverzicht.
+- ✅ Alleen publieke spelersgegevens; geen e-mailadressen, telefoonnummers of geboortedata.
+- ✅ Zichtbare sponsors met pakketniveau, logo en optionele websitelink.
+- ✅ Automatisch verversen iedere tien seconden met offline fallback.
 
 ## 5. Productieklaar maken
 

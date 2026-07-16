@@ -162,6 +162,93 @@ function matchesPayload(PDO $db, int $tournamentId): array
     return ['matches' => $matches, 'round_count' => $matches ? max(array_column($matches, 'round_number')) : 0];
 }
 
+function publicTournamentPagePayload(PDO $db, array $tournament): array
+{
+    $tournamentId = (int)$tournament['id'];
+    $occupied = occupiedRegistrationSpots($db, $tournamentId);
+    $sponsorReserved = reservedSponsorSpots($db, $tournamentId);
+    $confirmed = $db->prepare("SELECT COUNT(*) FROM players WHERE tournament_id = ? AND registration_status = 'confirmed'");
+    $confirmed->execute([$tournamentId]);
+    $activeCourts = $db->prepare('SELECT COUNT(*) FROM courts WHERE tournament_id = ? AND is_active = 1');
+    $activeCourts->execute([$tournamentId]);
+    $tournamentPayload = publicTournament($tournament);
+    $tournamentPayload['confirmed_players'] = (int)$confirmed->fetchColumn();
+    $tournamentPayload['active_courts'] = (int)$activeCourts->fetchColumn();
+    $tournamentPayload['sponsor_reserved_spots'] = $sponsorReserved;
+    $tournamentPayload['public_spots_available'] = max(0, (int)$tournament['capacity'] - $occupied - $sponsorReserved);
+    $tournamentPayload['registration_full'] = $tournamentPayload['public_spots_available'] === 0;
+    $tournamentPayload['registration_available'] = $tournament['status'] === 'registration'
+        && !$tournamentPayload['registration_full']
+        && new DateTimeImmutable($tournament['registration_deadline_at'], new DateTimeZone($tournament['timezone'])) > new DateTimeImmutable('now', new DateTimeZone($tournament['timezone']));
+    $drawStatement = $db->prepare("SELECT status, published_at FROM draws WHERE tournament_id = ? LIMIT 1");
+    $drawStatement->execute([$tournamentId]);
+    $draw = $drawStatement->fetch();
+    $published = $draw && $draw['status'] === 'published';
+
+    $matches = [];
+    if ($published) {
+        $statement = $db->prepare(
+            "SELECT m.id, m.round_number, m.bracket_position, m.scheduled_at, m.duration_minutes, m.status, m.completed_at,
+                    c.name AS court_name,
+                    p1.name AS player_one_name, p1.player_number AS player_one_number,
+                    p2.name AS player_two_name, p2.player_number AS player_two_number,
+                    w.name AS winner_name, w.player_number AS winner_number,
+                    CASE WHEN m.winner_id = m.player_one_id THEN 'one' WHEN m.winner_id = m.player_two_id THEN 'two' ELSE NULL END AS winner_side
+             FROM matches m
+             LEFT JOIN courts c ON c.id = m.court_id
+             LEFT JOIN players p1 ON p1.id = m.player_one_id
+             LEFT JOIN players p2 ON p2.id = m.player_two_id
+             LEFT JOIN players w ON w.id = m.winner_id
+             WHERE m.tournament_id = ? ORDER BY m.round_number, m.bracket_position"
+        );
+        $statement->execute([$tournamentId]);
+        $matches = array_map(static function (array $match): array {
+            foreach (['id', 'round_number', 'bracket_position', 'duration_minutes'] as $field) $match[$field] = (int)$match[$field];
+            foreach (['player_one_number', 'player_two_number', 'winner_number'] as $field) {
+                $match[$field] = $match[$field] !== null ? (int)$match[$field] : null;
+            }
+            return $match;
+        }, $statement->fetchAll());
+    }
+
+    $items = $db->prepare(
+        'SELECT si.id, si.item_type, si.title, si.starts_at, si.duration_minutes, si.is_tournament_wide, c.name AS court_name
+         FROM schedule_items si LEFT JOIN courts c ON c.id = si.court_id
+         WHERE si.tournament_id = ? ORDER BY si.starts_at, si.sort_order, si.id'
+    );
+    $items->execute([$tournamentId]);
+    $scheduleItems = array_map(static function (array $item): array {
+        $item['id'] = (int)$item['id'];
+        $item['duration_minutes'] = (int)$item['duration_minutes'];
+        $item['is_tournament_wide'] = (bool)$item['is_tournament_wide'];
+        return $item;
+    }, $items->fetchAll());
+
+    $sponsors = $db->prepare(
+        'SELECT s.id, s.name, s.website_url, s.logo_path, st.name AS tier_name
+         FROM sponsors s LEFT JOIN sponsor_tiers st ON st.id = s.tier_id
+         WHERE s.tournament_id = ? AND s.is_active = 1 AND s.show_on_public_pages = 1
+         ORDER BY st.sort_order, s.sort_order, s.name'
+    );
+    $sponsors->execute([$tournamentId]);
+    $publicSponsors = array_map(static function (array $sponsor): array {
+        $sponsor['id'] = (int)$sponsor['id'];
+        $sponsor['logo_url'] = publicAssetUrl($sponsor['logo_path']);
+        unset($sponsor['logo_path']);
+        return $sponsor;
+    }, $sponsors->fetchAll());
+
+    return [
+        'tournament' => $tournamentPayload,
+        'draw' => ['published' => (bool)$published, 'published_at' => $draw['published_at'] ?? null],
+        'round_count' => (int)round(log((int)$tournament['capacity'], 2)),
+        'matches' => $matches,
+        'schedule_items' => $scheduleItems,
+        'sponsors' => $publicSponsors,
+        'refreshed_at' => gmdate(DATE_ATOM),
+    ];
+}
+
 function clearDownstreamResult(PDO $db, array $match, int $userId): void
 {
     if ($match['next_match_id'] === null || $match['next_match_slot'] === null) return;
@@ -1540,6 +1627,12 @@ try {
             $featured = ['round_number' => $featuredRoundNumber, 'round_count' => (int)$roundCountStatement->fetchColumn(), 'matches' => $featuredMatches->fetchAll()];
         }
         Http::json(['tournament' => publicTournament($tournament), 'upcoming_matches' => $upcoming->fetchAll(), 'featured_round' => $featured, 'slides' => presentationSlidesPayload($db, (int)$tournament['id'], true), 'refreshed_at' => gmdate(DATE_ATOM)]);
+    }
+
+    if ($method === 'GET' && $path === '/api/public/tournament-page') {
+        $tournament = $db->query("SELECT * FROM tournaments WHERE status IN ('registration','live','completed') ORDER BY starts_at DESC LIMIT 1")->fetch();
+        if (!$tournament) Http::json(['error' => 'Er is momenteel geen openbaar toernooi.'], 404);
+        Http::json(publicTournamentPagePayload($db, $tournament));
     }
 
     if ($method === 'POST' && $path === '/api/waitlist') {
