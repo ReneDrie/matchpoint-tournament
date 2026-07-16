@@ -23,6 +23,8 @@ export type TournamentConfig = {
   };
   presentation_defaults: { slide_seconds: number; upcoming_match_count: number };
   confirmed_players: number;
+  sponsor_reserved_spots: number;
+  public_spots_available: number;
   registration_available: boolean;
   registration_full: boolean;
   active_courts: number;

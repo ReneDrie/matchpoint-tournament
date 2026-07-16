@@ -333,6 +333,38 @@ function assertSponsorPlayerCapacity(PDO $db, int $sponsorId, int $tournamentId,
     if ((int)$sponsor['player_count'] >= (int)$sponsor['player_limit']) Http::json(['error' => 'Het inbegrepen spelersaantal van deze sponsor is bereikt. Verhoog eerst de sponsoroverride.'], 409);
 }
 
+function reservedSponsorSpots(PDO $db, int $tournamentId): int
+{
+    $statement = $db->prepare(
+        "SELECT COALESCE(s.player_limit_override, st.included_players) AS player_limit, COUNT(p.id) AS player_count
+         FROM sponsors s JOIN sponsor_tiers st ON st.id = s.tier_id
+         LEFT JOIN players p ON p.sponsor_id = s.id AND p.registration_status = 'confirmed'
+         WHERE s.tournament_id = ? AND s.is_active = 1
+         GROUP BY s.id, st.id"
+    );
+    $statement->execute([$tournamentId]);
+    $reserved = 0;
+    foreach ($statement->fetchAll() as $sponsor) {
+        $reserved += max(0, (int)$sponsor['player_limit'] - (int)$sponsor['player_count']);
+    }
+    return $reserved;
+}
+
+function occupiedRegistrationSpots(PDO $db, int $tournamentId, ?int $excludedWaitlistEntryId = null): int
+{
+    $sql = "SELECT
+        (SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))) +
+        (SELECT COUNT(*) FROM waitlist_entries WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at > NOW()";
+    $parameters = [$tournamentId, $tournamentId];
+    if ($excludedWaitlistEntryId !== null) {
+        $sql .= ' AND id <> ?';
+        $parameters[] = $excludedWaitlistEntryId;
+    }
+    $statement = $db->prepare($sql . ')');
+    $statement->execute($parameters);
+    return (int)$statement->fetchColumn();
+}
+
 try {
     $db = Database::connect();
 
@@ -346,14 +378,16 @@ try {
         if (!$tournament) Http::json(['error' => 'Er is momenteel geen actief toernooi.'], 404);
         $confirmed = $db->prepare("SELECT COUNT(*) FROM players WHERE tournament_id = ? AND registration_status = 'confirmed'");
         $confirmed->execute([(int)$tournament['id']]);
-        $occupied = $db->prepare("SELECT (SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))) + (SELECT COUNT(*) FROM waitlist_entries WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at > NOW())");
-        $occupied->execute([(int)$tournament['id'], (int)$tournament['id']]);
+        $occupied = occupiedRegistrationSpots($db, (int)$tournament['id']);
+        $sponsorReserved = reservedSponsorSpots($db, (int)$tournament['id']);
         $activeCourts = $db->prepare('SELECT COUNT(*) FROM courts WHERE tournament_id = ? AND is_active = 1');
         $activeCourts->execute([(int)$tournament['id']]);
         $payload = publicTournament($tournament);
         $payload['confirmed_players'] = (int)$confirmed->fetchColumn();
         $payload['active_courts'] = (int)$activeCourts->fetchColumn();
-        $payload['registration_full'] = (int)$occupied->fetchColumn() >= $payload['capacity'];
+        $payload['sponsor_reserved_spots'] = $sponsorReserved;
+        $payload['public_spots_available'] = max(0, $payload['capacity'] - $occupied - $sponsorReserved);
+        $payload['registration_full'] = $payload['public_spots_available'] === 0;
         $payload['registration_available'] = $tournament['status'] === 'registration'
             && !$payload['registration_full']
             && new DateTimeImmutable($tournament['registration_deadline_at'], new DateTimeZone($tournament['timezone'])) > new DateTimeImmutable('now', new DateTimeZone($tournament['timezone']));
@@ -1519,9 +1553,9 @@ try {
         if (!$tournament) Http::json(['error' => 'De inschrijving is gesloten.'], 409);
         $deadline = new DateTimeImmutable($tournament['registration_deadline_at'], new DateTimeZone($tournament['timezone']));
         if ($deadline <= new DateTimeImmutable('now', new DateTimeZone($tournament['timezone']))) Http::json(['error' => 'De inschrijfdeadline is verstreken.'], 409);
-        $occupied = $db->prepare("SELECT (SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))) + (SELECT COUNT(*) FROM waitlist_entries WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at > NOW())");
-        $occupied->execute([(int)$tournament['id'], (int)$tournament['id']]);
-        if ((int)$occupied->fetchColumn() < (int)$tournament['capacity']) Http::json(['error' => 'Er is momenteel nog een plek beschikbaar. Je kunt je direct inschrijven.'], 409);
+        $occupied = occupiedRegistrationSpots($db, (int)$tournament['id']);
+        $reserved = reservedSponsorSpots($db, (int)$tournament['id']);
+        if ($occupied + $reserved < (int)$tournament['capacity']) Http::json(['error' => 'Er is momenteel nog een publieke plek beschikbaar. Je kunt je direct inschrijven.'], 409);
         $existing = $db->prepare('SELECT id, status, position FROM waitlist_entries WHERE tournament_id = ? AND email = ? LIMIT 1');
         $existing->execute([(int)$tournament['id'], $email]);
         $entry = $existing->fetch();
@@ -1568,9 +1602,9 @@ try {
         $statement->execute([$entryId]);
         $entry = $statement->fetch();
         if (!$entry || !in_array($entry['status'], ['waiting', 'expired', 'invited'], true)) Http::json(['error' => 'Deze wachtlijstinschrijving kan niet worden uitgenodigd.'], 409);
-        $occupied = $db->prepare("SELECT (SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))) + (SELECT COUNT(*) FROM waitlist_entries WHERE tournament_id = ? AND status = 'invited' AND invitation_expires_at > NOW() AND id <> ?)");
-        $occupied->execute([(int)$entry['tournament_id'], (int)$entry['tournament_id'], $entryId]);
-        if ((int)$occupied->fetchColumn() >= (int)$entry['capacity']) Http::json(['error' => 'Er is nog geen vrije plek om te reserveren voor deze uitnodiging.'], 409);
+        $occupied = occupiedRegistrationSpots($db, (int)$entry['tournament_id'], $entryId);
+        $reserved = reservedSponsorSpots($db, (int)$entry['tournament_id']);
+        if ($occupied + $reserved >= (int)$entry['capacity']) Http::json(['error' => 'Er is nog geen publieke plek vrij om voor deze uitnodiging te reserveren.'], 409);
         $token = bin2hex(random_bytes(32));
         $expiresAt = (new DateTimeImmutable('+48 hours'))->format('Y-m-d H:i:s');
         $db->prepare("UPDATE waitlist_entries SET status = 'invited', invitation_token_hash = ?, invited_at = NOW(), invitation_expires_at = ? WHERE id = ?")
@@ -1625,9 +1659,9 @@ try {
             $invitation = $invited->fetch();
             if (!$invitation || strtolower($data['email']) !== strtolower($invitation['email'])) Http::json(['error' => 'Deze wachtlijstuitnodiging is ongeldig of hoort bij een ander e-mailadres.'], 410);
         }
-        $count = $db->prepare("SELECT COUNT(*) FROM players WHERE tournament_id = ? AND (registration_status = 'confirmed' OR (registration_status = 'payment_pending' AND payment_reservation_expires_at > NOW()))");
-        $count->execute([(int)$tournament['id']]);
-        if (!$invitation && (int)$count->fetchColumn() >= (int)$tournament['capacity']) Http::json(['error' => 'Het toernooi is vol. Schrijf je in voor de wachtlijst.'], 409);
+        $occupied = occupiedRegistrationSpots($db, (int)$tournament['id']);
+        $reserved = reservedSponsorSpots($db, (int)$tournament['id']);
+        if (!$invitation && $occupied + $reserved >= (int)$tournament['capacity']) Http::json(['error' => 'De publieke plekken zijn vol. Schrijf je in voor de wachtlijst.'], 409);
 
         $db->beginTransaction();
         $statement = $db->prepare("INSERT INTO players (

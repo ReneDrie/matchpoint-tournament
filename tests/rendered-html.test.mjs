@@ -146,6 +146,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(schema, /included_players SMALLINT UNSIGNED/);
   assert.match(router, /sponsor_package\.updated/);
   assert.match(router, /assertSponsorPlayerCapacity/);
+  assert.match(router, /reservedSponsorSpots/);
+  assert.match(router, /public_spots_available/);
   assert.match(router, /waitlist\.invited/);
   assert.match(router, /waitlist_invitation/);
   assert.match(router, /sponsor\.logo_uploaded/);

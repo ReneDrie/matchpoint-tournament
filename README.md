@@ -34,6 +34,8 @@ De openbare inschrijfpagina verbergt de snelkoppeling naar de beheeromgeving aut
 
 React-componenten staan per domein in `app/components/<ComponentName>/`. Componentgebonden state en API-acties staan in een naastgelegen `<ComponentName>.hooks.ts`-bestand; gedeelde types, configuratie en routinghelpers staan in `app/components/shared/`.
 
+De openbare inschrijfcapaciteit houdt ongebruikte spelersplekken van actieve sponsors automatisch apart. Een sponsorplek komt pas beschikbaar voor reguliere inschrijving wanneer de sponsor wordt gedeactiveerd of de pakketlimiet wordt verlaagd.
+
 ## PHP/MySQL API
 
 Create `.env` from `.env.example`, add a Mollie test API key, then run:

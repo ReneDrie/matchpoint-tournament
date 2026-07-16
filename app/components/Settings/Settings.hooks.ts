@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import { API_URL } from "../shared/config";
 import type { Court, StaffUser, TournamentSettings } from "../shared/types";
 
-type SettingsForm = Omit<TournamentSettings, "registration_price" | "schedule_defaults" | "presentation_defaults" | "venue" | "confirmed_players" | "registration_available" | "active_courts">;
+type SettingsForm = Omit<TournamentSettings, "registration_price" | "schedule_defaults" | "presentation_defaults" | "venue" | "confirmed_players" | "sponsor_reserved_spots" | "public_spots_available" | "registration_available" | "registration_full" | "active_courts">;
 export type SettingsTab = "general" | "planning" | "presentation" | "courts" | "staff";
 
 function toInputDate(value: string) {

@@ -77,6 +77,7 @@ Brevo en Mollie zijn lokaal met geldige testgegevens geverifieerd.
 - ✅ Sponsorpakketten toevoegen en wijzigen met eenmalige kosten in centen.
 - ✅ Standaard inbegrepen spelers per pakket en override per sponsor.
 - ✅ Pakketlimiet wordt afgedwongen bij het toevoegen van sponsorpakketspelers.
+- ✅ Ongebruikte spelersplekken van actieve sponsors blijven gereserveerd en tellen niet als publieke beschikbaarheid.
 - ✅ Contact-e-mail en telefoonnummer per sponsor.
 - ✅ Toernooi-instellingen in tabs voor Algemeen, Planning, Presentatie en Banen.
 - ✅ Baan toevoegen, wijzigen, activeren, automatisch opslaan en verwijderen.
