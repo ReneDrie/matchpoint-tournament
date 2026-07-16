@@ -24,7 +24,11 @@ export function useSchedule(tournamentId: number, user: StaffUser) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`${API_URL}${path}`, { credentials: "include", ...options, headers: { "Content-Type": "application/json", "X-CSRF-Token": user.csrf_token, ...(options?.headers ?? {}) } });
+      const response = await fetch(`${API_URL}${path}`, {
+        credentials: "include",
+        ...options,
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": user.csrf_token, ...(options?.headers ?? {}) },
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "De planning kon niet worden opgeslagen.");
       setData(result);
@@ -39,26 +43,44 @@ export function useSchedule(tournamentId: number, user: StaffUser) {
 
   useEffect(() => {
     let active = true;
-    fetch(`${API_URL}/api/admin/tournaments/${tournamentId}/schedule`, { credentials: "include" }).then(async response => {
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "De planning kon niet worden geladen.");
-      if (active) setData(result);
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "De planning kon niet worden geladen."); }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+    fetch(`${API_URL}/api/admin/tournaments/${tournamentId}/schedule`, { credentials: "include" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "De planning kon niet worden geladen.");
+        if (active) setData(result);
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : "De planning kon niet worden geladen.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [tournamentId]);
 
-  const scheduledMatches = useMemo(() => data?.matches.filter(entry => entry.scheduled_at && entry.court_id) ?? [], [data]);
-  const unscheduled = useMemo(() => data?.matches.filter(entry => !entry.scheduled_at) ?? [], [data]);
-  const globalItems = useMemo(() => data?.items.filter(entry => entry.is_tournament_wide) ?? [], [data]);
+  const scheduledMatches = useMemo(
+    () => data?.matches.filter((entry) => entry.scheduled_at && entry.court_id) ?? [],
+    [data],
+  );
+  const unscheduled = useMemo(() => data?.matches.filter((entry) => !entry.scheduled_at) ?? [], [data]);
+  const globalItems = useMemo(() => data?.items.filter((entry) => entry.is_tournament_wide) ?? [], [data]);
 
   async function plan(payload: Record<string, unknown>) {
-    const success = await request(`/api/admin/tournaments/${tournamentId}/schedule/plan`, { method: "POST", body: JSON.stringify(payload) });
+    const success = await request(`/api/admin/tournaments/${tournamentId}/schedule/plan`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
     if (success) setPlanOpen(false);
   }
 
   async function saveItem(payload: Record<string, unknown>) {
     const editing = item !== "new" && item;
-    const success = await request(editing ? `/api/admin/schedule/items/${editing.id}` : `/api/admin/tournaments/${tournamentId}/schedule/items`, { method: editing ? "PATCH" : "POST", body: JSON.stringify(payload) });
+    const success = await request(
+      editing ? `/api/admin/schedule/items/${editing.id}` : `/api/admin/tournaments/${tournamentId}/schedule/items`,
+      { method: editing ? "PATCH" : "POST", body: JSON.stringify(payload) },
+    );
     if (success) setItem(null);
   }
 
@@ -70,15 +92,42 @@ export function useSchedule(tournamentId: number, user: StaffUser) {
 
   async function saveMatch(payload: Record<string, unknown>) {
     if (!match) return;
-    const success = await request(`/api/admin/matches/${match.id}/schedule`, { method: "PATCH", body: JSON.stringify(payload) });
+    const success = await request(`/api/admin/matches/${match.id}/schedule`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
     if (success) setMatch(null);
   }
 
   async function drop(target: ScheduleRef) {
     if (!dragging || (dragging.kind === target.kind && dragging.id === target.id)) return setDragging(null);
-    await request(`/api/admin/tournaments/${tournamentId}/schedule/swap`, { method: "POST", body: JSON.stringify({ first: dragging, second: target }) });
+    await request(`/api/admin/tournaments/${tournamentId}/schedule/swap`, {
+      method: "POST",
+      body: JSON.stringify({ first: dragging, second: target }),
+    });
     setDragging(null);
   }
 
-  return { data, loading, busy, error, planOpen, setPlanOpen, item, setItem, match, setMatch, scheduledMatches, unscheduled, globalItems, dragging, setDragging, plan, saveItem, deleteItem, saveMatch, drop };
+  return {
+    data,
+    loading,
+    busy,
+    error,
+    planOpen,
+    setPlanOpen,
+    item,
+    setItem,
+    match,
+    setMatch,
+    scheduledMatches,
+    unscheduled,
+    globalItems,
+    dragging,
+    setDragging,
+    plan,
+    saveItem,
+    deleteItem,
+    saveMatch,
+    drop,
+  };
 }

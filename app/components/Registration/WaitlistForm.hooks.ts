@@ -11,11 +11,22 @@ export function useWaitlistForm() {
   const [error, setError] = useState("");
   const [position, setPosition] = useState<number | null>(null);
   async function submit(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError("");
-    const response = await fetch(`${API_URL}/api/waitlist`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email }) });
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const response = await fetch(`${API_URL}/api/waitlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email }),
+    });
     const result = await response.json();
-    if (!response.ok) { setError(result.error ?? "Aanmelden voor de wachtlijst is niet gelukt."); setBusy(false); return; }
-    setPosition(Number(result.position)); setBusy(false);
+    if (!response.ok) {
+      setError(result.error ?? "Aanmelden voor de wachtlijst is niet gelukt.");
+      setBusy(false);
+      return;
+    }
+    setPosition(Number(result.position));
+    setBusy(false);
   }
   return { name, setName, email, setEmail, busy, error, position, submit };
 }

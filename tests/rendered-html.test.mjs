@@ -26,7 +26,17 @@ test("server-renders public registration at the root", async () => {
 });
 
 test("all management URLs can be loaded directly", async () => {
-  for (const pathname of ["/beheer", "/beheer/deelnemers", "/beheer/loting", "/beheer/wedstrijden", "/beheer/planning", "/beheer/sponsors", "/beheer/presentatie", "/beheer/email", "/beheer/instellingen"]) {
+  for (const pathname of [
+    "/beheer",
+    "/beheer/deelnemers",
+    "/beheer/loting",
+    "/beheer/wedstrijden",
+    "/beheer/planning",
+    "/beheer/sponsors",
+    "/beheer/presentatie",
+    "/beheer/email",
+    "/beheer/instellingen",
+  ]) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     assert.match(await response.text(), /Beveiligde omgeving laden/i, pathname);
@@ -65,7 +75,23 @@ test("derives participant and round totals from tournament capacity", async () =
 });
 
 test("keeps registration configuration and validation wired to the API", async () => {
-  const [appHooks, registrationHooks, waitlistHooks, loginHooks, playerHooks, settingsHooks, sponsorHooks, drawHooks, matchHooks, scheduleHooks, presentationHooks, communicationHooks, modalHooks, router, schema] = await Promise.all([
+  const [
+    appHooks,
+    registrationHooks,
+    waitlistHooks,
+    loginHooks,
+    playerHooks,
+    settingsHooks,
+    sponsorHooks,
+    drawHooks,
+    matchHooks,
+    scheduleHooks,
+    presentationHooks,
+    communicationHooks,
+    modalHooks,
+    router,
+    schema,
+  ] = await Promise.all([
     readFile(new URL("../app/components/TournamentApp/TournamentApp.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/Registration.hooks.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/Registration/WaitlistForm.hooks.ts", import.meta.url), "utf8"),

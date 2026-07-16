@@ -22,10 +22,18 @@ export function useTournamentApp(initialView: View) {
       return;
     }
     if (user?.role === "administrator") {
-      const adminResponse = await fetch(`${API_URL}/api/admin/tournaments/${tournament?.id ?? 1}`, { credentials: "include" });
+      const adminResponse = await fetch(`${API_URL}/api/admin/tournaments/${tournament?.id ?? 1}`, {
+        credentials: "include",
+      });
       if (adminResponse.ok) {
         const settings = (await adminResponse.json()).tournament;
-        setTournament(current => ({ ...settings, confirmed_players: current?.confirmed_players ?? 0, active_courts: current?.active_courts ?? 0, registration_available: false, registration_full: current?.registration_full ?? false }));
+        setTournament((current) => ({
+          ...settings,
+          confirmed_players: current?.confirmed_players ?? 0,
+          active_courts: current?.active_courts ?? 0,
+          registration_available: false,
+          registration_full: current?.registration_full ?? false,
+        }));
       }
     }
   }
@@ -57,11 +65,21 @@ export function useTournamentApp(initialView: View) {
     }
   }
 
-  async function reloadCrm() { await Promise.all([loadPlayers(), loadSponsors()]); }
+  async function reloadCrm() {
+    await Promise.all([loadPlayers(), loadSponsors()]);
+  }
 
   useEffect(() => {
-    fetch(`${API_URL}/api/public/tournament`).then(async response => { if (response.ok) setTournament((await response.json()).tournament); }).catch(() => undefined);
-    fetch(`${API_URL}/api/auth/me`, { credentials: "include" }).then(async response => { if (response.ok) setUser((await response.json()).user); }).finally(() => setAuthLoading(false));
+    fetch(`${API_URL}/api/public/tournament`)
+      .then(async (response) => {
+        if (response.ok) setTournament((await response.json()).tournament);
+      })
+      .catch(() => undefined);
+    fetch(`${API_URL}/api/auth/me`, { credentials: "include" })
+      .then(async (response) => {
+        if (response.ok) setUser((await response.json()).user);
+      })
+      .finally(() => setAuthLoading(false));
   }, []);
 
   useEffect(() => {
@@ -72,23 +90,49 @@ export function useTournamentApp(initialView: View) {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${API_URL}/api/admin/players`, { credentials: "include" }).then(async response => { if (response.ok) setPlayerRows((await response.json()).players); }).finally(() => setPlayersLoading(false));
-    if (user.role === "administrator") fetch(`${API_URL}/api/admin/sponsors`, { credentials: "include" }).then(async response => {
-      if (response.ok) {
-        const result = await response.json();
-        setSponsors(result.sponsors);
-        setSponsorTiers(result.tiers);
-      }
-    });
+    fetch(`${API_URL}/api/admin/players`, { credentials: "include" })
+      .then(async (response) => {
+        if (response.ok) setPlayerRows((await response.json()).players);
+      })
+      .finally(() => setPlayersLoading(false));
+    if (user.role === "administrator")
+      fetch(`${API_URL}/api/admin/sponsors`, { credentials: "include" }).then(async (response) => {
+        if (response.ok) {
+          const result = await response.json();
+          setSponsors(result.sponsors);
+          setSponsorTiers(result.tiers);
+        }
+      });
   }, [user]);
 
   async function logout() {
-    if (user) await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": user.csrf_token } });
+    if (user)
+      await fetch(`${API_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRF-Token": user.csrf_token },
+      });
     setUser(null);
     setPlayerRows([]);
     setSponsors([]);
     setSponsorTiers([]);
   }
 
-  return { view, tournament, user, setUser, authLoading, playerRows, sponsors, sponsorTiers, playersLoading, navigate, loadPublicTournament, loadPlayers, loadSponsors, reloadCrm, logout };
+  return {
+    view,
+    tournament,
+    user,
+    setUser,
+    authLoading,
+    playerRows,
+    sponsors,
+    sponsorTiers,
+    playersLoading,
+    navigate,
+    loadPublicTournament,
+    loadPlayers,
+    loadSponsors,
+    reloadCrm,
+    logout,
+  };
 }

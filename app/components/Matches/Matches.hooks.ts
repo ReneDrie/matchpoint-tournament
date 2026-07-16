@@ -23,7 +23,9 @@ export function useMatches(tournamentId: number, user: StaffUser) {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${API_URL}/api/admin/matches?tournament_id=${tournamentId}`, { credentials: "include" });
+      const response = await fetch(`${API_URL}/api/admin/matches?tournament_id=${tournamentId}`, {
+        credentials: "include",
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Wedstrijden konden niet worden geladen.");
       setData(result);
@@ -38,18 +40,24 @@ export function useMatches(tournamentId: number, user: StaffUser) {
   useEffect(() => {
     let active = true;
     fetch(`${API_URL}/api/admin/matches?tournament_id=${tournamentId}`, { credentials: "include" })
-      .then(async response => {
+      .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error ?? "Wedstrijden konden niet worden geladen.");
         if (active) setData(result);
       })
-      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Wedstrijden konden niet worden geladen."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Wedstrijden konden niet worden geladen.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [tournamentId]);
 
-  const visible = useMemo(() => data.matches.filter(match => match.round_number === round), [data.matches, round]);
-  const completed = data.matches.filter(match => match.status === "complete").length;
+  const visible = useMemo(() => data.matches.filter((match) => match.round_number === round), [data.matches, round]);
+  const completed = data.matches.filter((match) => match.status === "complete").length;
 
   function choose(match: TournamentMatch, winnerId: number | null) {
     if (!winnerId || !match.player_one_id || !match.player_two_id) return;
@@ -62,7 +70,9 @@ export function useMatches(tournamentId: number, user: StaffUser) {
     setError("");
     try {
       const response = await fetch(`${API_URL}/api/admin/matches/${selected.match.id}/winner`, {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-CSRF-Token": user.csrf_token },
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": user.csrf_token },
         body: JSON.stringify({ winner_id: selected.winnerId }),
       });
       const result = await response.json();
@@ -76,5 +86,19 @@ export function useMatches(tournamentId: number, user: StaffUser) {
     }
   }
 
-  return { data, round, setRound, visible, selected, loading, busy, error, completed, choose, confirmWinner, closeConfirm: () => setSelected(null), reload: load };
+  return {
+    data,
+    round,
+    setRound,
+    visible,
+    selected,
+    loading,
+    busy,
+    error,
+    completed,
+    choose,
+    confirmWinner,
+    closeConfirm: () => setSelected(null),
+    reload: load,
+  };
 }

@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../shared/config";
 
-type PaymentResult = { status: string; registration_status: string; player_name: string; tournament_name: string; amount: string };
+type PaymentResult = {
+  status: string;
+  registration_status: string;
+  player_name: string;
+  tournament_name: string;
+  amount: string;
+};
 
 export function usePaymentConfirmation(token: string) {
   const [payment, setPayment] = useState<PaymentResult | null>(null);
@@ -20,7 +26,10 @@ export function usePaymentConfirmation(token: string) {
       if (["open", "pending"].includes(result.payment.status)) timer = setTimeout(load, 3000);
     };
     if (token) void load();
-    return () => { active = false; clearTimeout(timer); };
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [token]);
   return { payment, error };
 }

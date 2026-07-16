@@ -16,7 +16,12 @@ export function useLogin(onLogin: (user: StaffUser) => void) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Inloggen is niet gelukt.");
       onLogin(result.user);

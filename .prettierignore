@@ -1,0 +1,7 @@
+.next
+dist
+node_modules
+.wrangler
+backend/public/uploads
+package-lock.json
+*.sql

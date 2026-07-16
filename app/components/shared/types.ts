@@ -1,6 +1,16 @@
 import type { MouseEvent } from "react";
 
-export type View = "overview" | "players" | "draw" | "matches" | "schedule" | "sponsors" | "communications" | "presentation" | "settings" | "registration";
+export type View =
+  | "overview"
+  | "players"
+  | "draw"
+  | "matches"
+  | "schedule"
+  | "sponsors"
+  | "communications"
+  | "presentation"
+  | "settings"
+  | "registration";
 
 export type Navigate = (view: View, event?: MouseEvent<HTMLAnchorElement>) => void;
 
@@ -145,8 +155,22 @@ export type PresentationSlide = {
   is_active: boolean;
 };
 
-export type LiveMatch = { id: number; round_number: number; bracket_position: number; scheduled_at: string | null; court: string | null; player_one: string | null; player_two: string | null };
-export type LivePresentationData = { tournament: TournamentConfig; slides: PresentationSlide[]; upcoming_matches: LiveMatch[]; featured_round: { round_number: number; round_count: number; matches: LiveMatch[] } | null; refreshed_at: string };
+export type LiveMatch = {
+  id: number;
+  round_number: number;
+  bracket_position: number;
+  scheduled_at: string | null;
+  court: string | null;
+  player_one: string | null;
+  player_two: string | null;
+};
+export type LivePresentationData = {
+  tournament: TournamentConfig;
+  slides: PresentationSlide[];
+  upcoming_matches: LiveMatch[];
+  featured_round: { round_number: number; round_count: number; matches: LiveMatch[] } | null;
+  refreshed_at: string;
+};
 
 export type StaffUser = {
   id: number;
@@ -155,9 +179,32 @@ export type StaffUser = {
   role: "administrator" | "host";
   csrf_token: string;
 };
-export type StaffAccount = { id: number; name: string; email: string; role: "administrator" | "host"; is_active: number; last_login_at: string | null; created_at: string };
-export type StaffInvitation = { id: number; name: string; email: string; role: "administrator" | "host"; expires_at: string; created_at: string };
-export type EmailMessage = { id: number; message_type: string; recipient_email: string; subject: string; status: "queued" | "sent" | "delivered" | "bounced" | "failed"; sent_at: string | null; created_at: string };
+export type StaffAccount = {
+  id: number;
+  name: string;
+  email: string;
+  role: "administrator" | "host";
+  is_active: number;
+  last_login_at: string | null;
+  created_at: string;
+};
+export type StaffInvitation = {
+  id: number;
+  name: string;
+  email: string;
+  role: "administrator" | "host";
+  expires_at: string;
+  created_at: string;
+};
+export type EmailMessage = {
+  id: number;
+  message_type: string;
+  recipient_email: string;
+  subject: string;
+  status: "queued" | "sent" | "delivered" | "bounced" | "failed";
+  sent_at: string | null;
+  created_at: string;
+};
 
 export type Player = {
   id: number;
@@ -209,4 +256,10 @@ export type Sponsor = {
   effective_player_limit: number;
 };
 
-export type SponsorTier = { id: number; name: string; cost_cents: number; included_players: number; sponsor_count: number };
+export type SponsorTier = {
+  id: number;
+  name: string;
+  cost_cents: number;
+  included_players: number;
+  sponsor_count: number;
+};

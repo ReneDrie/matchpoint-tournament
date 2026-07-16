@@ -7,7 +7,15 @@ import type { EmailMessage, Player, StaffUser } from "../shared/types";
 
 type RecipientFilter = "confirmed" | "all" | "checked_in";
 
-export function useCommunications({ user, tournamentId, players }: { user: StaffUser; tournamentId: number; players: Player[] }) {
+export function useCommunications({
+  user,
+  tournamentId,
+  players,
+}: {
+  user: StaffUser;
+  tournamentId: number;
+  players: Player[];
+}) {
   const [filter, setFilter] = useState<RecipientFilter>("confirmed");
   const [selected, setSelected] = useState<number[]>([]);
   const [subject, setSubject] = useState("");
@@ -17,21 +25,30 @@ export function useCommunications({ user, tournamentId, players }: { user: Staff
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const eligible = useMemo(() => players.filter((player) => {
-    if (filter === "all") return ["confirmed", "payment_pending"].includes(player.registration_status);
-    if (filter === "checked_in") return Boolean(player.checked_in_at);
-    return player.registration_status === "confirmed";
-  }), [players, filter]);
+  const eligible = useMemo(
+    () =>
+      players.filter((player) => {
+        if (filter === "all") return ["confirmed", "payment_pending"].includes(player.registration_status);
+        if (filter === "checked_in") return Boolean(player.checked_in_at);
+        return player.registration_status === "confirmed";
+      }),
+    [players, filter],
+  );
   const recipients = selected.length ? eligible.filter((player) => selected.includes(player.id)) : eligible;
 
   async function load() {
-    const response = await fetch(`${API_URL}/api/admin/emails?tournament_id=${tournamentId}`, { credentials: "include" });
+    const response = await fetch(`${API_URL}/api/admin/emails?tournament_id=${tournamentId}`, {
+      credentials: "include",
+    });
     if (response.ok) setMessages((await response.json()).messages);
   }
 
   useEffect(() => {
-    void fetch(`${API_URL}/api/admin/emails?tournament_id=${tournamentId}`, { credentials: "include" })
-      .then(async (response) => { if (response.ok) setMessages((await response.json()).messages); });
+    void fetch(`${API_URL}/api/admin/emails?tournament_id=${tournamentId}`, { credentials: "include" }).then(
+      async (response) => {
+        if (response.ok) setMessages((await response.json()).messages);
+      },
+    );
   }, [tournamentId]);
 
   function changeFilter(value: string) {
@@ -40,12 +57,13 @@ export function useCommunications({ user, tournamentId, players }: { user: Staff
   }
 
   function toggle(id: number) {
-    setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+    setSelected((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!window.confirm(`E-mail versturen naar ${recipients.length} deelnemer${recipients.length === 1 ? "" : "s"}?`)) return;
+    if (!window.confirm(`E-mail versturen naar ${recipients.length} deelnemer${recipients.length === 1 ? "" : "s"}?`))
+      return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -70,5 +88,21 @@ export function useCommunications({ user, tournamentId, players }: { user: Staff
     }
   }
 
-  return { filter, changeFilter, eligible, selected, toggle, recipients, subject, setSubject, body, setBody, messages, busy, error, notice, submit };
+  return {
+    filter,
+    changeFilter,
+    eligible,
+    selected,
+    toggle,
+    recipients,
+    subject,
+    setSubject,
+    body,
+    setBody,
+    messages,
+    busy,
+    error,
+    notice,
+    submit,
+  };
 }

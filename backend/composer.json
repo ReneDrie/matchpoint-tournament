@@ -7,6 +7,8 @@
     "mollie/mollie-api-php": "^3.0"
   },
   "autoload": {
-    "psr-4": { "Matchpoint\\": "src/" }
+    "psr-4": {
+      "Matchpoint\\": "src/"
+    }
   }
 }

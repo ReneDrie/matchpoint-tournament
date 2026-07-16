@@ -36,6 +36,16 @@ React-componenten staan per domein in `app/components/<ComponentName>/`. Compone
 
 De openbare inschrijfcapaciteit houdt ongebruikte spelersplekken van actieve sponsors automatisch apart. Een sponsorplek komt pas beschikbaar voor reguliere inschrijving wanneer de sponsor wordt gedeactiveerd of de pakketlimiet wordt verlaagd.
 
+## Codekwaliteit
+
+Het project gebruikt ESLint voor React/TypeScript-codekwaliteit en Prettier voor consistente opmaak. Gebruik tijdens ontwikkeling:
+
+```bash
+npm run check       # ESLint en opmaak controleren
+npm run lint:fix    # automatisch herstelbare ESLint-regels toepassen
+npm run format      # alle ondersteunde bestanden formatteren
+```
+
 ## PHP/MySQL API
 
 Create `.env` from `.env.example`, add a Mollie test API key, then run:
