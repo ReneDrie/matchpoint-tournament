@@ -377,10 +377,13 @@ function reconcileMolliePayment(PDO $db, object $payment, array $stored): void
         ->execute([$payment->status, $payment->status, (int)$stored['id']]);
     if ($payment->isPaid() && !$wasPaid) {
         $db->prepare("UPDATE players SET registration_status = 'confirmed', payment_reservation_expires_at = NULL WHERE id = ?")->execute([(int)$stored['player_id']]);
-        Auth::issuePlayerToken($db, (int)$stored['player_id']);
+        $manageToken = Auth::issuePlayerToken($db, (int)$stored['player_id']);
+        $frontend = rtrim(getenv('FRONTEND_URL') ?: 'http://localhost:3000', '/');
+        $base = trim(getenv('NEXT_PUBLIC_BASE_PATH') ?: getenv('APP_BASE_PATH') ?: '', '/');
+        $manageUrl = $frontend . ($base ? '/' . $base : '') . '/mijn-inschrijving?token=' . $manageToken;
         $subject = 'Je inschrijving voor ' . $stored['tournament_name'] . ' is bevestigd';
-        $html = '<h1>Je bent ingeschreven</h1><p>Hallo ' . htmlspecialchars($stored['player_name']) . ', je betaling is ontvangen en je inschrijving voor ' . htmlspecialchars($stored['tournament_name']) . ' is bevestigd.</p>';
-        sendTransactionalEmail($db, (int)$stored['tournament_id'], null, 'payment_confirmation', $stored['email'], $subject, $html, ['payment_id' => (int)$stored['id']]);
+        $html = '<h1>Je bent ingeschreven</h1><p>Hallo ' . htmlspecialchars($stored['player_name']) . ', je betaling is ontvangen en je inschrijving voor ' . htmlspecialchars($stored['tournament_name']) . ' is bevestigd.</p><p><a href="' . htmlspecialchars($manageUrl) . '">Bekijk of wijzig je inschrijving</a></p><p>Deze persoonlijke link is eenmalig te gebruiken en 30 minuten geldig.</p>';
+        sendTransactionalEmail($db, (int)$stored['tournament_id'], null, 'payment_confirmation', $stored['email'], $subject, $html, ['payment_id' => (int)$stored['id'], 'manage_url' => $manageUrl]);
         Audit::record($db, 'payment.paid', 'payment', (int)$stored['id'], null, (int)$stored['tournament_id'], ['provider_payment_id' => $payment->id]);
     }
     $db->commit();
@@ -1633,6 +1636,72 @@ try {
         $tournament = $db->query("SELECT * FROM tournaments WHERE status IN ('registration','live','completed') ORDER BY starts_at DESC LIMIT 1")->fetch();
         if (!$tournament) Http::json(['error' => 'Er is momenteel geen openbaar toernooi.'], 404);
         Http::json(publicTournamentPagePayload($db, $tournament));
+    }
+
+    if ($method === 'POST' && $path === '/api/players/access-link') {
+        RateLimiter::check($db, 'player-access-link', Http::ip(), 5, 30);
+        $data = Http::input();
+        $email = strtolower(trim((string)($data['email'] ?? '')));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) Http::json(['error' => 'Vul een geldig e-mailadres in.'], 422);
+        $statement = $db->prepare("SELECT p.id, p.name, p.email, p.tournament_id, t.name AS tournament_name FROM players p JOIN tournaments t ON t.id = p.tournament_id WHERE p.email = ? AND p.registration_status IN ('payment_pending','confirmed') ORDER BY p.id DESC LIMIT 1");
+        $statement->execute([$email]);
+        $player = $statement->fetch();
+        if ($player) {
+            $token = Auth::issuePlayerToken($db, (int)$player['id']);
+            $frontend = rtrim(getenv('FRONTEND_URL') ?: 'http://localhost:3000', '/');
+            $base = trim(getenv('NEXT_PUBLIC_BASE_PATH') ?: getenv('APP_BASE_PATH') ?: '', '/');
+            $manageUrl = $frontend . ($base ? '/' . $base : '') . '/mijn-inschrijving?token=' . $token;
+            $subject = 'Beheer je inschrijving voor ' . $player['tournament_name'];
+            $html = '<h1>Je persoonlijke inschrijflink</h1><p>Hallo ' . htmlspecialchars($player['name']) . ', via onderstaande knop kun je jouw inschrijving bekijken en wijzigen.</p><p><a href="' . htmlspecialchars($manageUrl) . '">Beheer mijn inschrijving</a></p><p>Deze link is eenmalig te gebruiken en 30 minuten geldig. Heb je deze e-mail niet aangevraagd, dan kun je hem negeren.</p>';
+            $mailStatus = sendTransactionalEmail($db, (int)$player['tournament_id'], null, 'player_access_link', $player['email'], $subject, $html, ['player_id' => (int)$player['id'], 'manage_url' => $manageUrl]);
+            Audit::record($db, 'player.access_link_requested', 'player', (int)$player['id'], null, (int)$player['tournament_id'], ['email_status' => $mailStatus]);
+        }
+        Http::json(['sent' => true], 202);
+    }
+
+    if ($method === 'GET' && $path === '/api/players/me') {
+        $token = (string)($_GET['token'] ?? '');
+        if (strlen($token) !== 64) Http::json(['error' => 'Deze link is ongeldig.'], 422);
+        $statement = $db->prepare("SELECT p.name, p.email, p.phone, p.date_of_birth, p.knltb_number, p.singles_rating, p.doubles_rating, p.entrance_song_query, p.registration_status, t.name AS tournament_name, pat.expires_at FROM player_access_tokens pat JOIN players p ON p.id = pat.player_id JOIN tournaments t ON t.id = p.tournament_id WHERE pat.token_hash = ? AND pat.purpose = 'manage' AND pat.used_at IS NULL AND pat.expires_at > NOW() LIMIT 1");
+        $statement->execute([hash('sha256', $token)]);
+        $player = $statement->fetch();
+        if (!$player) Http::json(['error' => 'Deze link is gebruikt, verlopen of ongeldig. Vraag een nieuwe link aan.'], 410);
+        Http::json(['player' => $player]);
+    }
+
+    if ($method === 'PATCH' && $path === '/api/players/me') {
+        $data = Http::input();
+        $token = (string)($data['token'] ?? '');
+        if (strlen($token) !== 64) Http::json(['error' => 'Deze link is ongeldig.'], 422);
+        foreach (['name', 'phone', 'date_of_birth', 'entrance_song_query'] as $field) {
+            if (trim((string)($data[$field] ?? '')) === '') Http::json(['error' => "{$field} is verplicht."], 422);
+        }
+        if (empty($data['knltb_number']) && (empty($data['singles_rating']) || empty($data['doubles_rating']))) {
+            Http::json(['error' => 'Vul een KNLTB bondsnummer in, of zowel enkel- als dubbelsterkte.'], 422);
+        }
+        $db->beginTransaction();
+        $statement = $db->prepare("SELECT pat.id AS token_id, pat.player_id, p.tournament_id, t.starts_at, t.timezone FROM player_access_tokens pat JOIN players p ON p.id = pat.player_id JOIN tournaments t ON t.id = p.tournament_id WHERE pat.token_hash = ? AND pat.purpose = 'manage' AND pat.used_at IS NULL AND pat.expires_at > NOW() LIMIT 1 FOR UPDATE");
+        $statement->execute([hash('sha256', $token)]);
+        $access = $statement->fetch();
+        if (!$access) {
+            $db->rollBack();
+            Http::json(['error' => 'Deze link is gebruikt, verlopen of ongeldig. Vraag een nieuwe link aan.'], 410);
+        }
+        $birthDate = DateTimeImmutable::createFromFormat('!Y-m-d', (string)$data['date_of_birth']);
+        $startDate = new DateTimeImmutable($access['starts_at'], new DateTimeZone($access['timezone']));
+        if (!$birthDate || $birthDate->modify('+18 years') > $startDate) {
+            $db->rollBack();
+            Http::json(['error' => 'Je moet op de toernooidatum minimaal 18 jaar zijn.'], 422);
+        }
+        $db->prepare('UPDATE players SET name = ?, phone = ?, date_of_birth = ?, age_verified_at = NOW(), knltb_number = ?, singles_rating = ?, doubles_rating = ?, entrance_song_query = ? WHERE id = ?')->execute([
+            trim((string)$data['name']), trim((string)$data['phone']), $birthDate->format('Y-m-d'),
+            trim((string)($data['knltb_number'] ?? '')) ?: null, trim((string)($data['singles_rating'] ?? '')) ?: null,
+            trim((string)($data['doubles_rating'] ?? '')) ?: null, trim((string)$data['entrance_song_query']), (int)$access['player_id'],
+        ]);
+        $db->prepare('UPDATE player_access_tokens SET used_at = NOW() WHERE id = ? AND used_at IS NULL')->execute([(int)$access['token_id']]);
+        Audit::record($db, 'player.self_service_updated', 'player', (int)$access['player_id'], null, (int)$access['tournament_id']);
+        $db->commit();
+        Http::json(['updated' => true]);
     }
 
     if ($method === 'POST' && $path === '/api/waitlist') {

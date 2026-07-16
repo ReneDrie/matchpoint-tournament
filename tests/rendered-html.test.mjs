@@ -67,6 +67,33 @@ test("server-renders the payment confirmation directly", async () => {
   assert.match(await response.text(), /BETALING CONTROLEREN/i);
 });
 
+test("server-renders player self-service directly", async () => {
+  const requestResponse = await render("/mijn-inschrijving");
+  assert.equal(requestResponse.status, 200);
+  assert.match(await requestResponse.text(), /MIJN INSCHRIJVING/i);
+
+  const tokenResponse = await render("/mijn-inschrijving?token=test");
+  assert.equal(tokenResponse.status, 200);
+  assert.match(await tokenResponse.text(), /LINK CONTROLEREN/i);
+});
+
+test("keeps secure player links single-use and enumeration-safe", async () => {
+  const [auth, router, hooks] = await Promise.all([
+    readFile(new URL("../backend/src/Auth.php", import.meta.url), "utf8"),
+    readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/PlayerSelfService/PlayerSelfService.hooks.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(auth, /UPDATE player_access_tokens SET used_at = NOW\(\).*player_id = \?.*purpose = \?/s);
+  assert.match(router, /POST.*api\/players\/access-link/s);
+  assert.match(router, /Http::json\(\['sent' => true\], 202\)/);
+  assert.match(router, /pat\.used_at IS NULL AND pat\.expires_at > NOW\(\)/);
+  assert.match(router, /FOR UPDATE/);
+  assert.match(router, /UPDATE player_access_tokens SET used_at = NOW\(\) WHERE id = \?/);
+  assert.match(router, /player\.self_service_updated/);
+  assert.match(hooks, /method: "PATCH"/);
+  assert.match(hooks, /api\/players\/access-link/);
+});
+
 test("derives participant and round totals from tournament capacity", async () => {
   const [overview, registration, players] = await Promise.all([
     readFile(new URL("../app/components/Overview/Overview.tsx", import.meta.url), "utf8"),

@@ -2,9 +2,9 @@
 
 Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na iedere afgeronde feature bij, samen met de relevante tests en database-migraties.
 
-**Laatst bijgewerkt:** 15 juli 2026  
+**Laatst bijgewerkt:** 16 juli 2026
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Publieke toernooipagina met programma, schema, uitslagen en sponsors
+**Laatste afgeronde feature:** Veilige eenmalige e-maillinks en selfservice voor spelers
 
 ## Statuslegenda
 
@@ -16,11 +16,11 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ### Productie-integraties — fase 5A
 
-De eerstvolgende aanbevolen bouwstap maakt veilige selfservice voor spelers mogelijk:
+De eerstvolgende aanbevolen bouwstap verbetert de muziekinvoer bij inschrijving:
 
-- Veilige e-maillinks voor spelers toevoegen.
+- Spotify-zoekresultaten suggereren en de gekozen track opslaan.
 
-Brevo en Mollie zijn lokaal met geldige testgegevens geverifieerd.
+Veilige spelerslinks, Brevo en Mollie zijn lokaal geverifieerd.
 
 ## 0. Technische basis en beheerinterface
 
@@ -57,7 +57,7 @@ Brevo en Mollie zijn lokaal met geldige testgegevens geverifieerd.
 - ✅ Idempotente webhook/statusverwerking en betaalbevestigingsmail via Brevo.
 - ✅ Wachtlijstformulier, dashboardbeheer, plekreservering en veilige uitnodigingslink.
 - ✅ Uitnodigingsmail wordt via Brevo verzonden of zonder key veilig in de lokale mailwachtrij gezet.
-- 🟡 Beveiligde e-maillinks voor spelers implementeren.
+- ✅ Beveiligde, eenmalige e-maillinks met 30 minuten geldigheid en speler-selfservice.
 - 🟡 Spotify-zoekresultaat suggereren en opslaan.
 - ⬜ Wachtwoord vergeten/herstellen voor staff.
 

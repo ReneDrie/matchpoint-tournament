@@ -66,6 +66,8 @@ The implemented foundation endpoints are:
 - `POST /api/registrations`
 - `POST /api/waitlist`
 - `GET /api/waitlist/invitation?token={token}`
+- `POST /api/players/access-link`
+- `GET/PATCH /api/players/me` (eenmalige spelerlink van 30 minuten)
 - `POST /api/payments/mollie-webhook`
 - `GET /api/payments/status?token={token}`
 - `POST /api/auth/login`

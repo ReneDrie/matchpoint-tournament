@@ -99,6 +99,9 @@ final class Auth
         $token = bin2hex(random_bytes(32));
         $expires = new DateTimeImmutable($lifetime);
         $db->prepare(
+            'UPDATE player_access_tokens SET used_at = NOW() WHERE player_id = ? AND purpose = ? AND used_at IS NULL'
+        )->execute([$playerId, $purpose]);
+        $db->prepare(
             'INSERT INTO player_access_tokens (player_id, token_hash, purpose, expires_at) VALUES (?, ?, ?, ?)'
         )->execute([$playerId, hash('sha256', $token), $purpose, $expires->format('Y-m-d H:i:s')]);
         return $token;

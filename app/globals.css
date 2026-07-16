@@ -5085,3 +5085,30 @@ td {
     grid-column: auto;
   }
 }
+
+.player-self-service-card {
+  width: min(720px, 100%);
+}
+.player-self-service-card h1 {
+  font-size: 30px;
+  margin: 7px 0 10px;
+}
+.player-self-service-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+  text-align: left;
+}
+.player-self-service-card input[readonly] {
+  background: #f4f0f4;
+  color: #756d76;
+}
+.player-self-service-card .continue {
+  width: 100%;
+  margin-top: 22px;
+}
+@media (max-width: 640px) {
+  .player-self-service-fields {
+    grid-template-columns: 1fr;
+  }
+}
