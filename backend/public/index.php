@@ -549,6 +549,73 @@ try {
         Http::json(['user' => Auth::login($db, (string)($data['email'] ?? ''), (string)($data['password'] ?? ''))]);
     }
 
+    if ($method === 'POST' && $path === '/api/auth/password-reset/request') {
+        $data = Http::input();
+        $email = strtolower(trim((string)($data['email'] ?? '')));
+        RateLimiter::check($db, 'staff-password-reset-ip', Http::ip(), 5, 30);
+        RateLimiter::check($db, 'staff-password-reset-email', $email, 3, 30);
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $statement = $db->prepare('SELECT id, name, email FROM users WHERE email = ? AND is_active = 1 LIMIT 1');
+            $statement->execute([$email]);
+            $account = $statement->fetch();
+            if ($account) {
+                $token = bin2hex(random_bytes(32));
+                $expiresAt = (new DateTimeImmutable('+30 minutes'))->format('Y-m-d H:i:s');
+                $db->beginTransaction();
+                $db->prepare('UPDATE staff_password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL')
+                    ->execute([(int)$account['id']]);
+                $db->prepare('INSERT INTO staff_password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)')
+                    ->execute([(int)$account['id'], hash('sha256', $token), $expiresAt]);
+                $resetId = (int)$db->lastInsertId();
+                $db->commit();
+
+                $frontend = rtrim(getenv('FRONTEND_URL') ?: 'http://localhost:3000', '/');
+                $frontendBase = trim(getenv('NEXT_PUBLIC_BASE_PATH') ?: getenv('APP_BASE_PATH') ?: '', '/');
+                $resetUrl = $frontend . ($frontendBase ? '/' . $frontendBase : '') . '/beheer/wachtwoord-herstellen?token=' . $token;
+                $html = '<h1>Nieuw wachtwoord instellen</h1><p>Hallo ' . htmlspecialchars($account['name']) . ', er is gevraagd om het wachtwoord van je Matchpoint-account te herstellen.</p><p><a href="' . htmlspecialchars($resetUrl) . '">Stel een nieuw wachtwoord in</a></p><p>Deze eenmalige link is 30 minuten geldig. Heb je dit niet aangevraagd? Dan hoef je niets te doen.</p>';
+                $mailStatus = sendTransactionalEmail($db, null, null, 'staff_password_reset', $account['email'], 'Herstel je Matchpoint-wachtwoord', $html, ['password_reset_id' => $resetId, 'expires_at' => $expiresAt]);
+                Audit::record($db, 'auth.password_reset_requested', 'user', (int)$account['id'], null, null, ['mail_status' => $mailStatus]);
+            }
+        }
+        Http::json(['sent' => true], 202);
+    }
+
+    if ($method === 'GET' && $path === '/api/auth/password-reset') {
+        $token = (string)($_GET['token'] ?? '');
+        if (strlen($token) !== 64 || !ctype_xdigit($token)) Http::json(['error' => 'Deze herstellink is ongeldig of verlopen.'], 410);
+        $statement = $db->prepare('SELECT id FROM staff_password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() LIMIT 1');
+        $statement->execute([hash('sha256', $token)]);
+        if (!$statement->fetch()) Http::json(['error' => 'Deze herstellink is ongeldig of verlopen.'], 410);
+        Http::json(['valid' => true]);
+    }
+
+    if ($method === 'POST' && $path === '/api/auth/password-reset/complete') {
+        $data = Http::input();
+        $token = (string)($data['token'] ?? '');
+        $password = (string)($data['password'] ?? '');
+        if (strlen($token) !== 64 || !ctype_xdigit($token)) Http::json(['error' => 'Deze herstellink is ongeldig of verlopen.'], 410);
+        if (strlen($password) < 12) Http::json(['error' => 'Kies een wachtwoord van minimaal 12 tekens.'], 422);
+        RateLimiter::check($db, 'staff-password-reset-complete', Http::ip(), 8, 30);
+
+        $db->beginTransaction();
+        $statement = $db->prepare('SELECT spr.id, spr.user_id FROM staff_password_resets spr JOIN users u ON u.id = spr.user_id WHERE spr.token_hash = ? AND spr.used_at IS NULL AND spr.expires_at > NOW() AND u.is_active = 1 LIMIT 1 FOR UPDATE');
+        $statement->execute([hash('sha256', $token)]);
+        $reset = $statement->fetch();
+        if (!$reset) {
+            $db->rollBack();
+            Http::json(['error' => 'Deze herstellink is ongeldig of verlopen.'], 410);
+        }
+        $db->prepare('UPDATE users SET password_hash = ? WHERE id = ? AND is_active = 1')
+            ->execute([password_hash($password, PASSWORD_DEFAULT), (int)$reset['user_id']]);
+        $db->prepare('UPDATE staff_password_resets SET used_at = NOW() WHERE id = ?')
+            ->execute([(int)$reset['id']]);
+        $db->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([(int)$reset['user_id']]);
+        Audit::record($db, 'auth.password_reset_completed', 'user', (int)$reset['user_id'], (int)$reset['user_id']);
+        $db->commit();
+        Http::json(['reset' => true]);
+    }
+
     if ($method === 'GET' && $path === '/api/auth/me') {
         Http::json(['user' => Auth::current($db)]);
     }

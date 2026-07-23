@@ -2,9 +2,9 @@
 
 Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na iedere afgeronde feature bij, samen met de relevante tests en database-migraties.
 
-**Laatst bijgewerkt:** 22 juli 2026
+**Laatst bijgewerkt:** 23 juli 2026
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Spotify-tracks zoeken, kiezen en bij de inschrijving opslaan
+**Laatste afgeronde feature:** Veilige wachtwoord-vergeten- en herstelflow voor staff
 
 ## Statuslegenda
 
@@ -14,11 +14,9 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Staff-authenticatie — wachtwoordherstel
+### Auditlog zichtbaar maken
 
-De eerstvolgende aanbevolen bouwstap voegt een veilige wachtwoord-vergeten- en herstelflow voor staff toe.
-
-Spotify-zoeken valt bij ontbrekende configuratie of een storing veilig terug op de verplichte vrije muziektekst.
+De eerstvolgende aanbevolen bouwstap maakt de bestaande auditregistratie inzichtelijk voor Administrators, met filters op actie, datum en entiteit.
 
 ## 0. Technische basis en beheerinterface
 
@@ -57,7 +55,9 @@ Spotify-zoeken valt bij ontbrekende configuratie of een storing veilig terug op 
 - ✅ Uitnodigingsmail wordt via Brevo verzonden of zonder key veilig in de lokale mailwachtrij gezet.
 - ✅ Beveiligde, eenmalige e-maillinks met 30 minuten geldigheid en speler-selfservice.
 - ✅ Spotify-zoekresultaten suggereren, gekozen track opslaan en veilig terugvallen op vrije tekst.
-- ⬜ Wachtwoord vergeten/herstellen voor staff.
+- ✅ Wachtwoord vergeten/herstellen voor staff met enumeratiebestendige aanvraag, eenmalige link en sessie-intrekking.
+
+Relevante migratie: `010_staff_password_resets.sql` voegt reset-tokens en het e-mailberichttype voor staff-wachtwoordherstel toe.
 
 ## 2. CRM en toernooibeheer
 

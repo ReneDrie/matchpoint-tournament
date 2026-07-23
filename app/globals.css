@@ -2009,6 +2009,12 @@ td {
   padding: 0 11px;
   outline: 0;
 }
+.login-card .inline-link {
+  display: block;
+  width: fit-content;
+  margin: 16px auto 0;
+  text-decoration: none;
+}
 .empty-state {
   min-height: 220px;
   display: flex;

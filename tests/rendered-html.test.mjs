@@ -49,6 +49,35 @@ test("server-renders a Host invitation directly", async () => {
   assert.match(await response.text(), /HOST-UITNODIGING/i);
 });
 
+test("server-renders staff password recovery directly", async () => {
+  const requestResponse = await render("/beheer/wachtwoord-herstellen");
+  assert.equal(requestResponse.status, 200);
+  assert.match(await requestResponse.text(), /WACHTWOORD VERGETEN/i);
+
+  const tokenResponse = await render("/beheer/wachtwoord-herstellen?token=test");
+  assert.equal(tokenResponse.status, 200);
+  assert.match(await tokenResponse.text(), /Herstellink controleren/i);
+});
+
+test("keeps staff password recovery single-use and enumeration-safe", async () => {
+  const [router, schema, hooks] = await Promise.all([
+    readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../backend/database/schema.sql", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/PasswordReset/PasswordReset.hooks.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(schema, /CREATE TABLE staff_password_resets/);
+  assert.match(schema, /token_hash CHAR\(64\) NOT NULL UNIQUE/);
+  assert.match(router, /staff-password-reset-ip/);
+  assert.match(router, /staff-password-reset-email/);
+  assert.match(router, /Http::json\(\['sent' => true\], 202\)/);
+  assert.match(router, /SELECT spr\.id, spr\.user_id FROM staff_password_resets.*FOR UPDATE/s);
+  assert.match(router, /UPDATE staff_password_resets SET used_at = NOW\(\) WHERE id = \?/);
+  assert.match(router, /DELETE FROM user_sessions WHERE user_id = \?/);
+  assert.match(router, /auth\.password_reset_completed/);
+  assert.match(hooks, /api\/auth\/password-reset\/request/);
+  assert.match(hooks, /api\/auth\/password-reset\/complete/);
+});
+
 test("server-renders the public presentation directly", async () => {
   const response = await render("/presentatie");
   assert.equal(response.status, 200);

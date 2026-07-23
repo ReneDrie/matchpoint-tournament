@@ -1,6 +1,7 @@
 "use client";
 
 import { Brand } from "../Brand/Brand";
+import { routeHref } from "../shared/routing";
 import type { StaffUser } from "../shared/types";
 import { useLogin } from "./Login.hooks";
 
@@ -34,6 +35,9 @@ export function Login({
         <button className="primary continue" disabled={busy}>
           {busy ? "Inloggen…" : "Inloggen"}
         </button>
+        <a className="back inline-link" href={routeHref("/beheer/wachtwoord-herstellen")}>
+          Wachtwoord vergeten?
+        </a>
         <button type="button" className="back" onClick={openRegistration}>
           Naar de openbare inschrijving →
         </button>
