@@ -3,6 +3,8 @@
 import { Brand } from "../Brand/Brand";
 import { SHOW_ADMIN_SHORTCUT } from "../shared/config";
 import { routeHref } from "../shared/routing";
+import { useEffect, useState } from "react";
+import { API_URL } from "../shared/config";
 import type { TournamentConfig } from "../shared/types";
 import { useRegistrationForm } from "./Registration.hooks";
 import { WaitlistForm } from "./WaitlistForm";
@@ -27,6 +29,38 @@ export function Registration({ close, tournament }: { close: () => void; tournam
   const registrationClosed = Boolean(
     tournament && !tournament.registration_available && !tournament.registration_full && !registration.invitationToken,
   );
+  const [tracks, setTracks] = useState<
+    Array<{ id: string; title: string; artists: string; album: string; image_url: string | null; spotify_url: string }>
+  >([]);
+  const [spotifyState, setSpotifyState] = useState<"idle" | "loading" | "unavailable">("idle");
+
+  useEffect(() => {
+    const query = form.entrance_song_query.trim();
+    if (query.length < 2 || form.entrance_song_url) {
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setSpotifyState("loading");
+      try {
+        const response = await fetch(`${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        setTracks(result.tracks ?? []);
+        setSpotifyState("idle");
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        setTracks([]);
+        setSpotifyState("unavailable");
+      }
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [form.entrance_song_query, form.entrance_song_url]);
 
   return (
     <div className="registration-page">
@@ -163,44 +197,107 @@ export function Registration({ close, tournament }: { close: () => void; tournam
               <>
                 <p className="kicker">STAP 2 VAN 3</p>
                 <h2>Spelersprofiel</h2>
-                <p className="muted">Vul je bondsnummer in, of zowel je enkel- als dubbelsterkte.</p>
-                <label>
-                  KNLTB bondsnummer
-                  <input
-                    value={form.knltb_number}
-                    onChange={(e) => update("knltb_number", e.target.value)}
-                    placeholder="Bijv. 1234567"
-                  />
-                </label>
-                <div className="rating-fields">
-                  <label>
-                    Speelsterkte enkel
+                <section className="player-details-section" aria-labelledby="player-details-heading">
+                  <div className="form-section-heading">
+                    <h3 id="player-details-heading">Bondsnummer of speelsterkte</h3>
+                    <p>Vul je bondsnummer in, of zowel je enkel- als dubbelsterkte.</p>
+                  </div>
+                  <div className="qualification-option">
+                    <label>
+                      KNLTB bondsnummer
+                      <input
+                        disabled={form.no_tennis_association_membership}
+                        value={form.knltb_number}
+                        onChange={(e) => update("knltb_number", e.target.value)}
+                        placeholder="Bijv. 1234567"
+                      />
+                    </label>
+                  </div>
+                  <div className="qualification-option">
+                    <div className="rating-fields">
+                      <label>
+                        Speelsterkte enkel
+                        <input
+                          disabled={form.no_tennis_association_membership}
+                          value={form.singles_rating}
+                          onChange={(e) => update("singles_rating", e.target.value)}
+                          placeholder="Bijv. 5"
+                        />
+                      </label>
+                      <label>
+                        Speelsterkte dubbel
+                        <input
+                          disabled={form.no_tennis_association_membership}
+                          value={form.doubles_rating}
+                          onChange={(e) => update("doubles_rating", e.target.value)}
+                          placeholder="Bijv. 6"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <label className="field-unavailable membership-exemption">
                     <input
-                      value={form.singles_rating}
-                      onChange={(e) => update("singles_rating", e.target.value)}
-                      placeholder="Bijv. 5"
+                      type="checkbox"
+                      checked={form.no_tennis_association_membership}
+                      onChange={(e) => update("no_tennis_association_membership", e.target.checked)}
+                    />
+                    Ik ben geen lid van de tennisbond, maar wil toch graag meedoen
+                  </label>
+                </section>
+                <section className="entrance-song-section" aria-labelledby="entrance-song-heading">
+                  <div className="form-section-heading">
+                    <h3 id="entrance-song-heading">Opkomstnummer</h3>
+                    <p>Kies het nummer waarmee je tijdens het toernooi wilt opkomen.</p>
+                  </div>
+                  <label>
+                    Artiest en titel
+                    <input
+                      required
+                      value={form.entrance_song_query}
+                      onChange={(e) => update("entrance_song_query", e.target.value)}
+                      placeholder="Artiest – titel"
                     />
                   </label>
-                  <label>
-                    Speelsterkte dubbel
-                    <input
-                      value={form.doubles_rating}
-                      onChange={(e) => update("doubles_rating", e.target.value)}
-                      placeholder="Bijv. 6"
-                    />
-                  </label>
-                </div>
-                <small className="hint">Een bondsnummer óf beide speelsterktes is verplicht.</small>
-                <label>
-                  Opkomstnummer
-                  <input
-                    required
-                    value={form.entrance_song_query}
-                    onChange={(e) => update("entrance_song_query", e.target.value)}
-                    placeholder="Artiest – titel"
-                  />
-                </label>
-                <small className="hint">We zoeken na inschrijving automatisch naar de bijpassende Spotify-track.</small>
+                  <small className="hint">Tijdens het typen zoeken we naar de bijpassende Spotify-track.</small>
+                  {spotifyState === "loading" && <small className="hint">Spotify doorzoeken…</small>}
+                  {spotifyState === "unavailable" && (
+                    <small className="hint">Spotify zoeken is nu niet beschikbaar. Je vrije tekst blijft geldig.</small>
+                  )}
+                  {form.entrance_song_url && (
+                    <div className="spotify-selection">
+                      ✓ Spotify-track gekozen. Pas de tekst aan om opnieuw te zoeken.
+                    </div>
+                  )}
+                  {!form.entrance_song_url && form.entrance_song_query.trim().length >= 2 && tracks.length > 0 && (
+                    <div className="spotify-results" role="listbox" aria-label="Spotify zoekresultaten">
+                      {tracks.map((track) => (
+                        <button
+                          type="button"
+                          key={track.id}
+                          onClick={() => {
+                            update("entrance_song_query", `${track.artists} – ${track.title}`);
+                            update("entrance_song_url", track.spotify_url);
+                            setTracks([]);
+                          }}
+                        >
+                          {track.image_url ? (
+                            // Spotify artwork comes from a dynamic CDN URL returned by its API.
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={track.image_url} alt="" />
+                          ) : (
+                            <span className="spotify-placeholder">♫</span>
+                          )}
+                          <span>
+                            <strong>{track.title}</strong>
+                            <small>
+                              {track.artists} · {track.album}
+                            </small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
                 <label className="consent">
                   <input
                     type="checkbox"

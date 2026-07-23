@@ -77,6 +77,38 @@ function adminTournament(array $row): array
     ]);
 }
 
+function spotifyRequest(string $url, array $options = []): array
+{
+    $handle = curl_init($url);
+    $curlOptions = [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_HTTPHEADER => $options['headers'] ?? [],
+    ];
+    if (!empty($options['post'])) {
+        $curlOptions[CURLOPT_POST] = true;
+        $curlOptions[CURLOPT_POSTFIELDS] = $options['body'] ?? '';
+    }
+    curl_setopt_array($handle, $curlOptions);
+    $body = curl_exec($handle);
+    $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+    $error = curl_error($handle);
+    curl_close($handle);
+    if ($body === false || $error !== '' || $status < 200 || $status >= 300) {
+        throw new RuntimeException('Spotify is tijdelijk niet bereikbaar.');
+    }
+    $decoded = json_decode($body, true);
+    if (!is_array($decoded)) throw new RuntimeException('Spotify gaf een ongeldig antwoord.');
+    return $decoded;
+}
+
+function validSpotifyTrackUrl(mixed $value): ?string
+{
+    $url = trim((string)$value);
+    if ($url === '') return null;
+    return preg_match('#^https://open\.spotify\.com/track/[A-Za-z0-9]{22}$#', $url) ? $url : null;
+}
+
 function drawPayload(PDO $db, int $tournamentId): array
 {
     $tournament = $db->prepare('SELECT id, capacity FROM tournaments WHERE id = ? LIMIT 1');
@@ -457,6 +489,34 @@ function occupiedRegistrationSpots(PDO $db, int $tournamentId, ?int $excludedWai
 
 try {
     $db = Database::connect();
+
+    if ($method === 'GET' && $path === '/api/spotify/search') {
+        RateLimiter::check($db, 'spotify-search', Http::ip(), 30, 5);
+        $query = trim((string)($_GET['q'] ?? ''));
+        if (mb_strlen($query) < 2 || mb_strlen($query) > 100) Http::json(['error' => 'Vul minimaal 2 en maximaal 100 tekens in.'], 422);
+        $clientId = trim((string)getenv('SPOTIFY_CLIENT_ID'));
+        $clientSecret = trim((string)getenv('SPOTIFY_CLIENT_SECRET'));
+        if ($clientId === '' || $clientSecret === '') Http::json(['error' => 'Spotify zoeken is nog niet geconfigureerd.'], 503);
+        $token = spotifyRequest('https://accounts.spotify.com/api/token', [
+            'post' => true,
+            'headers' => ['Authorization: Basic ' . base64_encode($clientId . ':' . $clientSecret), 'Content-Type: application/x-www-form-urlencoded'],
+            'body' => 'grant_type=client_credentials',
+        ]);
+        $accessToken = (string)($token['access_token'] ?? '');
+        if ($accessToken === '') throw new RuntimeException('Spotify gaf geen toegangstoken terug.');
+        $result = spotifyRequest('https://api.spotify.com/v1/search?' . http_build_query(['q' => $query, 'type' => 'track', 'limit' => 5, 'market' => 'NL']), [
+            'headers' => ['Authorization: Bearer ' . $accessToken],
+        ]);
+        $tracks = array_map(static fn(array $track): array => [
+            'id' => (string)$track['id'],
+            'title' => (string)$track['name'],
+            'artists' => implode(', ', array_column($track['artists'] ?? [], 'name')),
+            'album' => (string)($track['album']['name'] ?? ''),
+            'image_url' => $track['album']['images'][2]['url'] ?? $track['album']['images'][0]['url'] ?? null,
+            'spotify_url' => (string)($track['external_urls']['spotify'] ?? ''),
+        ], $result['tracks']['items'] ?? []);
+        Http::json(['tracks' => $tracks]);
+    }
 
     if ($method === 'GET' && $path === '/api/health') {
         $db->query('SELECT 1');
@@ -1805,8 +1865,9 @@ try {
             if (trim((string)($data[$field] ?? '')) === '') Http::json(['error' => "{$field} is verplicht"], 422);
         }
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) Http::json(['error' => 'Vul een geldig e-mailadres in.'], 422);
-        if (empty($data['knltb_number']) && (empty($data['singles_rating']) || empty($data['doubles_rating']))) {
-            Http::json(['error' => 'Vul een KNLTB bondsnummer in, of zowel enkel- als dubbelsterkte.'], 422);
+        $hasNoQualification = !empty($data['no_tennis_association_membership']);
+        if (!$hasNoQualification && empty($data['knltb_number']) && (empty($data['singles_rating']) || empty($data['doubles_rating']))) {
+            Http::json(['error' => 'Vul een KNLTB bondsnummer in, beide speelsterktes, of geef aan dat je geen lid bent van de tennisbond.'], 422);
         }
         if (empty($data['accept_privacy']) || empty($data['accept_terms'])) Http::json(['error' => 'Accepteer de privacyverklaring en toernooivoorwaarden.'], 422);
 
@@ -1828,12 +1889,12 @@ try {
         $db->beginTransaction();
         $statement = $db->prepare("INSERT INTO players (
             tournament_id, name, email, phone, date_of_birth, age_verified_at, knltb_number, singles_rating, doubles_rating,
-            entrance_song_query, registration_status, payment_reservation_expires_at, privacy_version, privacy_accepted_at, terms_version, terms_accepted_at
-        ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, 'payment_pending', DATE_ADD(NOW(), INTERVAL 15 MINUTE), ?, NOW(), ?, NOW())");
+            entrance_song_query, entrance_song_url, registration_status, payment_reservation_expires_at, privacy_version, privacy_accepted_at, terms_version, terms_accepted_at
+        ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, 'payment_pending', DATE_ADD(NOW(), INTERVAL 15 MINUTE), ?, NOW(), ?, NOW())");
         $statement->execute([
             (int)$tournament['id'], trim($data['name']), strtolower(trim($data['email'])), trim($data['phone']), $birthDate->format('Y-m-d'),
             ($data['knltb_number'] ?? '') ?: null, ($data['singles_rating'] ?? '') ?: null, ($data['doubles_rating'] ?? '') ?: null,
-            trim($data['entrance_song_query']), $tournament['privacy_version'], $tournament['terms_version'],
+            trim($data['entrance_song_query']), validSpotifyTrackUrl($data['entrance_song_url'] ?? null), $tournament['privacy_version'], $tournament['terms_version'],
         ]);
         $playerId = (int)$db->lastInsertId();
         if ($invitation) $db->prepare("UPDATE waitlist_entries SET status = 'registered', invitation_token_hash = NULL WHERE id = ?")->execute([(int)$invitation['id']]);

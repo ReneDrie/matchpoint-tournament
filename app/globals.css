@@ -1176,6 +1176,61 @@ td {
 .music-example strong {
   font-size: 10px;
 }
+.spotify-results {
+  display: grid;
+  gap: 5px;
+  margin-top: 7px;
+}
+.spotify-results button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+  color: inherit;
+  text-align: left;
+}
+.spotify-results button:hover {
+  border-color: #1db954;
+}
+.spotify-results img,
+.spotify-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.spotify-placeholder {
+  display: grid;
+  place-items: center;
+  background: #1db954;
+  color: white;
+}
+.spotify-results button > span {
+  display: block;
+  min-width: 0;
+}
+.spotify-results strong,
+.spotify-results small {
+  display: block;
+}
+.spotify-results strong {
+  font-size: 10px;
+}
+.spotify-results small {
+  margin-top: 2px;
+  color: #827982;
+  font-size: 8px;
+}
+.spotify-selection {
+  margin-top: 7px;
+  color: #16883f;
+  font-size: 8px;
+  font-weight: 700;
+}
 .payment-summary {
   display: flex;
   justify-content: space-between;
@@ -1814,6 +1869,57 @@ td {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+.player-details-section,
+.entrance-song-section {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #e2d8e3;
+  border-radius: 10px;
+  background: #faf7fa;
+}
+.form-section-heading {
+  margin-bottom: 13px;
+}
+.form-section-heading h3 {
+  margin: 0;
+  color: var(--purple);
+  font-size: 14px;
+}
+.form-section-heading p {
+  margin: 4px 0 0;
+  color: #827982;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.qualification-option + .qualification-option {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e8e0e8;
+}
+.registration-card .field-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-weight: 500;
+}
+.registration-card .field-unavailable input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+.registration-card .membership-exemption {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e8e0e8;
+  line-height: 1.4;
+}
+.registration-card input:disabled {
+  background: #eee9ee;
+  color: #8b838b;
+  cursor: not-allowed;
 }
 .registration-card .consent {
   display: flex;

@@ -99,9 +99,6 @@ CREATE TABLE players (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT players_tournament_fk FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE,
-  CONSTRAINT players_identity_required CHECK (
-    knltb_number IS NOT NULL OR (singles_rating IS NOT NULL AND doubles_rating IS NOT NULL)
-  ),
   UNIQUE KEY players_number_unique (tournament_id, player_number),
   INDEX players_status_idx (tournament_id, registration_status),
   INDEX players_email_idx (tournament_id, email),

@@ -2,9 +2,9 @@
 
 Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na iedere afgeronde feature bij, samen met de relevante tests en database-migraties.
 
-**Laatst bijgewerkt:** 16 juli 2026
+**Laatst bijgewerkt:** 22 juli 2026
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Veilige eenmalige e-maillinks en selfservice voor spelers
+**Laatste afgeronde feature:** Spotify-tracks zoeken, kiezen en bij de inschrijving opslaan
 
 ## Statuslegenda
 
@@ -14,13 +14,11 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Productie-integraties — fase 5A
+### Staff-authenticatie — wachtwoordherstel
 
-De eerstvolgende aanbevolen bouwstap verbetert de muziekinvoer bij inschrijving:
+De eerstvolgende aanbevolen bouwstap voegt een veilige wachtwoord-vergeten- en herstelflow voor staff toe.
 
-- Spotify-zoekresultaten suggereren en de gekozen track opslaan.
-
-Veilige spelerslinks, Brevo en Mollie zijn lokaal geverifieerd.
+Spotify-zoeken valt bij ontbrekende configuratie of een storing veilig terug op de verplichte vrije muziektekst.
 
 ## 0. Technische basis en beheerinterface
 
@@ -58,7 +56,7 @@ Veilige spelerslinks, Brevo en Mollie zijn lokaal geverifieerd.
 - ✅ Wachtlijstformulier, dashboardbeheer, plekreservering en veilige uitnodigingslink.
 - ✅ Uitnodigingsmail wordt via Brevo verzonden of zonder key veilig in de lokale mailwachtrij gezet.
 - ✅ Beveiligde, eenmalige e-maillinks met 30 minuten geldigheid en speler-selfservice.
-- 🟡 Spotify-zoekresultaat suggereren en opslaan.
+- ✅ Spotify-zoekresultaten suggereren, gekozen track opslaan en veilig terugvallen op vrije tekst.
 - ⬜ Wachtwoord vergeten/herstellen voor staff.
 
 ## 2. CRM en toernooibeheer

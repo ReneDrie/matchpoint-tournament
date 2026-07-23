@@ -12,7 +12,9 @@ const initialForm = {
   knltb_number: "",
   singles_rating: "",
   doubles_rating: "",
+  no_tennis_association_membership: false,
   entrance_song_query: "",
+  entrance_song_url: "",
   accept_privacy: false,
   accept_terms: false,
   website: "",
@@ -28,9 +30,18 @@ export function useRegistrationForm() {
   const [invitationLoading, setInvitationLoading] = useState(Boolean(invitationToken));
   const [invitationValid, setInvitationValid] = useState(!invitationToken);
   const update = (field: keyof typeof form, value: string | boolean) =>
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "no_tennis_association_membership" && value
+        ? { knltb_number: "", singles_rating: "", doubles_rating: "" }
+        : {}),
+      ...(field === "entrance_song_query" ? { entrance_song_url: "" } : {}),
+    }));
   const personalComplete = Boolean(form.name && form.email && form.phone && form.date_of_birth);
-  const qualificationComplete = Boolean(form.knltb_number || (form.singles_rating && form.doubles_rating));
+  const qualificationComplete = Boolean(
+    form.knltb_number || (form.singles_rating && form.doubles_rating) || form.no_tennis_association_membership,
+  );
   const readyToPay =
     qualificationComplete && Boolean(form.entrance_song_query && form.accept_privacy && form.accept_terms);
 
