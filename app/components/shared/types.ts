@@ -8,6 +8,7 @@ export type View =
   | "schedule"
   | "sponsors"
   | "communications"
+  | "audit"
   | "presentation"
   | "settings"
   | "registration";
@@ -310,4 +311,24 @@ export type SponsorTier = {
   cost_cents: number;
   included_players: number;
   sponsor_count: number;
+};
+
+export type AuditEntry = {
+  id: number;
+  tournament_id: number | null;
+  user_id: number | null;
+  user_name: string | null;
+  user_email: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: number | null;
+  payload: Record<string, unknown> | null;
+  ip_address: string | null;
+  created_at: string;
+};
+
+export type AuditLogData = {
+  entries: AuditEntry[];
+  filters: { actions: string[]; entity_types: string[] };
+  pagination: { page: number; per_page: number; total: number; pages: number };
 };

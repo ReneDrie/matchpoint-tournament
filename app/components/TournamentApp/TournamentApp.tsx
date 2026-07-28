@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AuditLog } from "../AuditLog/AuditLog";
 import { Communications } from "../Communications/Communications";
 import { Draw } from "../Draw/Draw";
 import { Login } from "../Login/Login";
@@ -74,6 +75,12 @@ export function TournamentApp({ initialView }: { initialView: View }) {
           players={app.playerRows}
           tournamentName={app.tournament?.name ?? "Matchpoint Tournament"}
         />
+      ) : (
+        <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />
+      ),
+    audit:
+      app.user.role === "administrator" ? (
+        <AuditLog />
       ) : (
         <Overview setView={app.navigate} players={app.playerRows} tournament={app.tournament} />
       ),

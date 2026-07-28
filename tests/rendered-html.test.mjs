@@ -35,12 +35,33 @@ test("all management URLs can be loaded directly", async () => {
     "/beheer/sponsors",
     "/beheer/presentatie",
     "/beheer/email",
+    "/beheer/auditlog",
     "/beheer/instellingen",
   ]) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     assert.match(await response.text(), /Beveiligde omgeving laden/i, pathname);
   }
+});
+
+test("keeps the audit log administrator-only, filtered and paginated", async () => {
+  const [router, hooks, navigation] = await Promise.all([
+    readFile(new URL("../backend/public/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/AuditLog/AuditLog.hooks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/Navigation/Navigation.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(router, /GET.*api\/admin\/audit-log/s);
+  assert.match(router, /api\/admin\/audit-log'\).*requireRole\(\$db, \['administrator'\]\)/s);
+  assert.match(router, /a\.action = \?/);
+  assert.match(router, /a\.entity_type = \?/);
+  assert.match(router, /a\.created_at >= \?/);
+  assert.match(router, /DATE_ADD\(\?, INTERVAL 1 DAY\)/);
+  assert.match(router, /LIMIT ' \. \$perPage \. ' OFFSET ' \. \$offset/);
+  assert.match(router, /LEFT JOIN users u ON u\.id = a\.user_id/);
+  assert.match(hooks, /\/api\/admin\/audit-log/);
+  assert.match(hooks, /credentials: "include"/);
+  assert.match(navigation, /id: "audit".*label: "Auditlog"/);
+  assert.match(navigation, /\["draw", "sponsors", "communications", "audit"/);
 });
 
 test("server-renders a Host invitation directly", async () => {

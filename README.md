@@ -25,6 +25,7 @@ The application uses normal, directly addressable routes:
 - `/beheer/sponsors`
 - `/beheer/presentatie`
 - `/beheer/email` — handmatige e-mails aan gefilterde of geselecteerde deelnemers
+- `/beheer/auditlog` — doorzoekbare activiteiten- en wijzigingshistorie voor Administrators
 - `/presentatie` — openbare fullscreen livepresentatie
 - `/toernooi` — publiek programma, gepubliceerd knock-outschema, uitslagen en sponsors
 - `/beheer/instellingen` — Administrator settings and court management
@@ -81,6 +82,7 @@ The implemented foundation endpoints are:
 - `POST /api/auth/invitations/accept`
 - `GET /api/admin/staff` en `PATCH /api/admin/staff/{id}` (Administrator)
 - `GET /api/admin/emails` en `POST /api/admin/emails/broadcast` (Administrator)
+- `GET /api/admin/audit-log` met actie-, entiteits- en datumfilters (Administrator)
 - `GET /api/admin/tournaments` (staff)
 - `GET/PATCH /api/admin/tournaments/{id}` (Administrator)
 - `GET/POST /api/admin/tournaments/{id}/courts` (Administrator)

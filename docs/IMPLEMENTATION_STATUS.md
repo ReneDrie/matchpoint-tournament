@@ -2,9 +2,9 @@
 
 Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na iedere afgeronde feature bij, samen met de relevante tests en database-migraties.
 
-**Laatst bijgewerkt:** 23 juli 2026
+**Laatst bijgewerkt:** 28 juli 2026
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Veilige wachtwoord-vergeten- en herstelflow voor staff
+**Laatste afgeronde feature:** Doorzoekbare auditlog voor Administrators
 
 ## Statuslegenda
 
@@ -14,9 +14,9 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Auditlog zichtbaar maken
+### Excel-export voor deelnemers
 
-De eerstvolgende aanbevolen bouwstap maakt de bestaande auditregistratie inzichtelijk voor Administrators, met filters op actie, datum en entiteit.
+De eerstvolgende aanbevolen bouwstap voegt naast de bestaande CSV-export een Excel-export toe die direct bruikbaar is voor de toernooiorganisatie.
 
 ## 0. Technische basis en beheerinterface
 
@@ -87,7 +87,7 @@ Relevante migratie: `010_staff_password_resets.sql` voegt reset-tokens en het e-
 - ✅ Sponsorlogo veilig als SVG uploaden, vervangen en tonen.
 - ✅ Wachtlijst beheren vanuit het dashboard, inclusief uitnodigen en verwijderen.
 - ✅ Handmatige e-mail aan gefilterde, geselecteerde of alle deelnemers, inclusief voorbeeld en verzendhistorie.
-- 🟡 Auditlog zichtbaar maken voor Administrators.
+- ✅ Auditlog zichtbaar voor Administrators, met filters op actie, datum en entiteit, detailweergave en paginering.
 - ⬜ Excel-export naast CSV.
 
 ## 3. Loting, wedstrijden en planning

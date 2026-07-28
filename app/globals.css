@@ -579,6 +579,97 @@ td {
   border: 1px solid var(--line);
   padding: 6px 10px;
 }
+.pagination > div {
+  display: flex;
+  gap: 7px;
+}
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.audit-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 0 20px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.audit-filters label {
+  display: grid;
+  gap: 6px;
+  color: #756d76;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.audit-filters select,
+.audit-filters input {
+  min-width: 150px;
+  height: 37px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 10px;
+  background: #fff;
+  color: #625a63;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.audit-filters .secondary {
+  height: 37px;
+}
+.audit-table {
+  min-width: 920px;
+}
+.audit-table td {
+  vertical-align: top;
+}
+.audit-table td:first-child {
+  white-space: nowrap;
+}
+.audit-table td > strong,
+.audit-actor strong,
+.audit-actor small,
+.audit-technical {
+  display: block;
+}
+.audit-table td > strong,
+.audit-actor strong {
+  color: #302831;
+}
+.audit-actor small,
+.audit-technical {
+  margin-top: 3px;
+  color: #958d96;
+  font-size: 8px;
+}
+.audit-detail-button {
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+.audit-detail-row td {
+  padding: 14px 20px;
+  background: #faf9fa;
+}
+.audit-detail-row p {
+  margin: 0 0 9px;
+}
+.audit-detail-row pre {
+  max-height: 260px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: #4c444d;
+  font-size: 9px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .match-header > div > span,
 .schedule-toolbar > div > span,
 .presentation-control > div > span {

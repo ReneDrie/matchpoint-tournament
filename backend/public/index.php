@@ -673,6 +673,106 @@ try {
         Http::json(['messages' => $statement->fetchAll()]);
     }
 
+    if ($method === 'GET' && $path === '/api/admin/audit-log') {
+        Auth::requireRole($db, ['administrator']);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = min(100, max(10, (int)($_GET['per_page'] ?? 25)));
+        $offset = ($page - 1) * $perPage;
+        $action = trim((string)($_GET['action'] ?? ''));
+        $entityType = trim((string)($_GET['entity_type'] ?? ''));
+        $dateFrom = trim((string)($_GET['date_from'] ?? ''));
+        $dateTo = trim((string)($_GET['date_to'] ?? ''));
+        $tournamentId = isset($_GET['tournament_id']) ? max(1, (int)$_GET['tournament_id']) : null;
+
+        if (strlen($action) > 100 || strlen($entityType) > 80) {
+            Http::json(['error' => 'Het actie- of entiteitsfilter is ongeldig.'], 422);
+        }
+        foreach ([$dateFrom, $dateTo] as $date) {
+            if ($date !== '') {
+                $parsedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+                if (!$parsedDate || $parsedDate->format('Y-m-d') !== $date) {
+                    Http::json(['error' => 'Gebruik een geldige datum in het formaat JJJJ-MM-DD.'], 422);
+                }
+            }
+        }
+        if ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo) {
+            Http::json(['error' => 'De begindatum mag niet na de einddatum liggen.'], 422);
+        }
+
+        $where = [];
+        $parameters = [];
+        if ($tournamentId !== null) {
+            $where[] = 'a.tournament_id = ?';
+            $parameters[] = $tournamentId;
+        }
+        if ($action !== '') {
+            $where[] = 'a.action = ?';
+            $parameters[] = $action;
+        }
+        if ($entityType !== '') {
+            $where[] = 'a.entity_type = ?';
+            $parameters[] = $entityType;
+        }
+        if ($dateFrom !== '') {
+            $where[] = 'a.created_at >= ?';
+            $parameters[] = $dateFrom . ' 00:00:00';
+        }
+        if ($dateTo !== '') {
+            $where[] = 'a.created_at < DATE_ADD(?, INTERVAL 1 DAY)';
+            $parameters[] = $dateTo . ' 00:00:00';
+        }
+        $whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
+
+        $countStatement = $db->prepare('SELECT COUNT(*) FROM audit_log a' . $whereSql);
+        $countStatement->execute($parameters);
+        $total = (int)$countStatement->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+            $offset = ($page - 1) * $perPage;
+        }
+
+        $statement = $db->prepare(
+            'SELECT a.id, a.tournament_id, a.user_id, u.name AS user_name, u.email AS user_email,
+                    a.action, a.entity_type, a.entity_id, a.payload_json, a.ip_address, a.created_at
+             FROM audit_log a
+             LEFT JOIN users u ON u.id = a.user_id' . $whereSql . '
+             ORDER BY a.created_at DESC, a.id DESC
+             LIMIT ' . $perPage . ' OFFSET ' . $offset
+        );
+        $statement->execute($parameters);
+        $entries = array_map(static function (array $entry): array {
+            $entry['id'] = (int)$entry['id'];
+            $entry['tournament_id'] = $entry['tournament_id'] === null ? null : (int)$entry['tournament_id'];
+            $entry['user_id'] = $entry['user_id'] === null ? null : (int)$entry['user_id'];
+            $entry['entity_id'] = $entry['entity_id'] === null ? null : (int)$entry['entity_id'];
+            $entry['payload'] = $entry['payload_json'] === null ? null : json_decode($entry['payload_json'], true);
+            unset($entry['payload_json']);
+            return $entry;
+        }, $statement->fetchAll());
+
+        $optionWhere = $tournamentId === null ? '' : ' WHERE tournament_id = ?';
+        $optionParameters = $tournamentId === null ? [] : [$tournamentId];
+        $actionStatement = $db->prepare('SELECT DISTINCT action FROM audit_log' . $optionWhere . ' ORDER BY action');
+        $actionStatement->execute($optionParameters);
+        $entityStatement = $db->prepare('SELECT DISTINCT entity_type FROM audit_log' . $optionWhere . ' ORDER BY entity_type');
+        $entityStatement->execute($optionParameters);
+
+        Http::json([
+            'entries' => $entries,
+            'filters' => [
+                'actions' => $actionStatement->fetchAll(PDO::FETCH_COLUMN),
+                'entity_types' => $entityStatement->fetchAll(PDO::FETCH_COLUMN),
+            ],
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'pages' => $pages,
+            ],
+        ]);
+    }
+
     if ($method === 'POST' && $path === '/api/admin/emails/broadcast') {
         $user = Auth::requireRole($db, ['administrator']);
         Auth::verifyCsrf($user);

@@ -10,6 +10,7 @@ const nav: { id: View; label: string; icon: string }[] = [
   { id: "schedule", label: "Planning", icon: "▦" },
   { id: "sponsors", label: "Sponsors", icon: "✦" },
   { id: "communications", label: "E-mail", icon: "✉" },
+  { id: "audit", label: "Auditlog", icon: "≡" },
   { id: "presentation", label: "Presentatie", icon: "▣" },
   { id: "settings", label: "Instellingen", icon: "⚙" },
 ];
@@ -34,7 +35,7 @@ export function Sidebar({
           .filter(
             (item) =>
               user.role === "administrator" ||
-              !["draw", "sponsors", "communications", "presentation", "settings"].includes(item.id),
+              !["draw", "sponsors", "communications", "audit", "presentation", "settings"].includes(item.id),
           )
           .map((item) => (
             <a
@@ -91,6 +92,7 @@ export function Topbar({
     schedule: "Court planning",
     sponsors: "Sponsors",
     communications: "E-mailcommunicatie",
+    audit: "Auditlog",
     presentation: "Presentatiemodus",
     settings: "Toernooi-instellingen",
     registration: "Inschrijving",

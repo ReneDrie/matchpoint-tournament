@@ -8,6 +8,7 @@ export const viewRoutes: Record<View, string> = {
   schedule: "/beheer/planning",
   sponsors: "/beheer/sponsors",
   communications: "/beheer/email",
+  audit: "/beheer/auditlog",
   presentation: "/beheer/presentatie",
   settings: "/beheer/instellingen",
   registration: "/",
