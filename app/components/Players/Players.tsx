@@ -69,9 +69,14 @@ export function Players({
               <option value="refunded">Terugbetaald</option>
             </select>
             {user.role === "administrator" && (
-              <button className="secondary" onClick={controller.exportCsv}>
-                ⇩ Exporteer CSV
-              </button>
+              <>
+                <button className="secondary" onClick={() => controller.exportPlayers("csv")}>
+                  ⇩ Exporteer CSV
+                </button>
+                <button className="secondary" onClick={() => controller.exportPlayers("xlsx")}>
+                  ⇩ Exporteer Excel
+                </button>
+              </>
             )}
           </div>
           <div className="table-heading">

@@ -7,6 +7,7 @@ use Matchpoint\Auth;
 use Matchpoint\Database;
 use Matchpoint\Http;
 use Matchpoint\RateLimiter;
+use Matchpoint\Xlsx;
 use Mollie\Api\MollieApiClient;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -1678,6 +1679,8 @@ try {
     if ($method === 'GET' && $path === '/api/admin/players/export') {
         Auth::requireRole($db, ['administrator']);
         $tournamentId = max(1, (int)($_GET['tournament_id'] ?? 1));
+        $format = strtolower(trim((string)($_GET['format'] ?? 'csv')));
+        if (!in_array($format, ['csv', 'xlsx'], true)) Http::json(['error' => 'Kies CSV of Excel als exportformaat.'], 422);
         $statement = $db->prepare(
             "SELECT p.player_number, p.name, p.email, p.phone, p.knltb_number, p.singles_rating, p.doubles_rating,
                     p.entrance_song_query, p.entrance_song_url, s.name AS sponsor, p.registration_status,
@@ -1686,13 +1689,39 @@ try {
              WHERE p.tournament_id = ? ORDER BY COALESCE(p.player_number, 9999), p.name"
         );
         $statement->execute([$tournamentId]);
+        $headers = ['Spelersnummer', 'Naam', 'E-mail', 'Telefoon', 'KNLTB', 'Enkel', 'Dubbel', 'Opkomstnummer', 'Spotify', 'Sponsor', 'Status', '18+ geverifieerd', 'Ingecheckt op', 'Ingeschreven op'];
+        $rows = array_map(static fn(array $row): array => array_values($row), $statement->fetchAll());
+
+        if ($format === 'xlsx') {
+            $temporaryPath = tempnam(sys_get_temp_dir(), 'matchpoint-xlsx-');
+            if ($temporaryPath === false) Http::json(['error' => 'De Excel-export kon niet worden voorbereid.'], 500);
+            try {
+                Xlsx::create(
+                    $temporaryPath,
+                    'Deelnemers',
+                    $headers,
+                    $rows,
+                    [0 => 'number', 12 => 'datetime', 13 => 'datetime'],
+                    [14, 24, 30, 18, 16, 10, 10, 32, 38, 24, 18, 17, 21, 21]
+                );
+                header_remove('Content-Type');
+                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                header('Content-Disposition: attachment; filename="matchpoint-deelnemers.xlsx"');
+                header('Content-Length: ' . filesize($temporaryPath));
+                readfile($temporaryPath);
+            } finally {
+                if (is_file($temporaryPath)) unlink($temporaryPath);
+            }
+            exit;
+        }
+
         header_remove('Content-Type');
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="matchpoint-deelnemers.csv"');
         echo "\xEF\xBB\xBF";
         $output = fopen('php://output', 'wb');
-        fputcsv($output, ['Spelersnummer', 'Naam', 'E-mail', 'Telefoon', 'KNLTB', 'Enkel', 'Dubbel', 'Opkomstnummer', 'Spotify', 'Sponsor', 'Status', '18+ geverifieerd', 'Ingecheckt op', 'Ingeschreven op'], ';');
-        foreach ($statement->fetchAll() as $row) fputcsv($output, array_values($row), ';');
+        fputcsv($output, $headers, ';');
+        foreach ($rows as $row) fputcsv($output, $row, ';');
         fclose($output);
         exit;
     }

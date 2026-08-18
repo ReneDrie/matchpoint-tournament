@@ -203,6 +203,8 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(playerHooks, /\/api\/admin\/players/);
   assert.match(playerHooks, /check-in/);
   assert.match(playerHooks, /players\/export/);
+  assert.match(playerHooks, /format=\$\{format\}/);
+  assert.match(playerHooks, /matchpoint-deelnemers\.\$\{format\}/);
   assert.match(playerHooks, /admin\/waitlist/);
   assert.match(appHooks, /window\.history\.pushState/);
   assert.match(appHooks, /popstate/);
@@ -218,6 +220,7 @@ test("keeps registration configuration and validation wired to the API", async (
   assert.match(sponsorHooks, /sponsors\/\$\{result\.sponsor_id\}\/logo/);
   assert.match(router, /tournament\.settings_updated/);
   assert.match(router, /court\.created/);
+  assert.match(router, /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/);
   assert.match(drawHooks, /\/draw\/publish/);
   assert.match(matchHooks, /\/matches\/\$\{selected\.match\.id\}\/winner/);
   assert.match(scheduleHooks, /\/schedule\/plan/);

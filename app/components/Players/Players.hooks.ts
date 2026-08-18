@@ -33,14 +33,14 @@ export function usePlayers({ user, rows, reload }: { user: StaffUser; rows: Play
     await reload();
   }
 
-  async function exportCsv() {
+  async function exportPlayers(format: "csv" | "xlsx") {
     setError("");
-    const response = await fetch(`${API_URL}/api/admin/players/export`, { credentials: "include" });
+    const response = await fetch(`${API_URL}/api/admin/players/export?format=${format}`, { credentials: "include" });
     if (!response.ok) return setError("Exporteren is niet gelukt.");
     const url = URL.createObjectURL(await response.blob());
     const link = document.createElement("a");
     link.href = url;
-    link.download = "matchpoint-deelnemers.csv";
+    link.download = `matchpoint-deelnemers.${format}`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -115,7 +115,7 @@ export function usePlayers({ user, rows, reload }: { user: StaffUser; rows: Play
     setEditingPlayer,
     filtered,
     checkIn,
-    exportCsv,
+    exportPlayers,
     edit,
     waitlist,
     waitlistLoading,

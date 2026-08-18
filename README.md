@@ -88,6 +88,7 @@ The implemented foundation endpoints are:
 - `GET/POST /api/admin/tournaments/{id}/courts` (Administrator)
 - `PATCH/DELETE /api/admin/courts/{id}` (Administrator)
 - `GET /api/admin/players` (staff)
+- `GET /api/admin/players/export?format=csv|xlsx` (Administrator)
 - `GET /api/admin/waitlist` (Administrator)
 - `POST /api/admin/waitlist/{id}/invite` (Administrator)
 - `DELETE /api/admin/waitlist/{id}` (Administrator)

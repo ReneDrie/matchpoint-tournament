@@ -2,9 +2,9 @@
 
 Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na iedere afgeronde feature bij, samen met de relevante tests en database-migraties.
 
-**Laatst bijgewerkt:** 28 juli 2026
+**Laatst bijgewerkt:** 18 augustus 2026
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Doorzoekbare auditlog voor Administrators
+**Laatste afgeronde feature:** Excel-export voor deelnemers
 
 ## Statuslegenda
 
@@ -14,9 +14,9 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Excel-export voor deelnemers
+### Geautomatiseerde integratietests voor betaling en autorisatie
 
-De eerstvolgende aanbevolen bouwstap voegt naast de bestaande CSV-export een Excel-export toe die direct bruikbaar is voor de toernooiorganisatie.
+De eerstvolgende aanbevolen bouwstap legt de kritieke registratie-, betaal- en autorisatiestromen vast in geautomatiseerde integratietests voordat de productie-inrichting begint.
 
 ## 0. Technische basis en beheerinterface
 
@@ -88,7 +88,7 @@ Relevante migratie: `010_staff_password_resets.sql` voegt reset-tokens en het e-
 - ✅ Wachtlijst beheren vanuit het dashboard, inclusief uitnodigen en verwijderen.
 - ✅ Handmatige e-mail aan gefilterde, geselecteerde of alle deelnemers, inclusief voorbeeld en verzendhistorie.
 - ✅ Auditlog zichtbaar voor Administrators, met filters op actie, datum en entiteit, detailweergave en paginering.
-- ⬜ Excel-export naast CSV.
+- ✅ Excel-export naast CSV, met filters, vaste kopregel, getypeerde datums en veilige tekstvelden.
 
 ## 3. Loting, wedstrijden en planning
 
