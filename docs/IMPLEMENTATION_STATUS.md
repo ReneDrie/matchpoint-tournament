@@ -4,7 +4,7 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 **Laatst bijgewerkt:** 18 augustus 2026
 **Huidige hoofdbranch:** `main`  
-**Laatste afgeronde feature:** Excel-export voor deelnemers
+**Laatste afgeronde feature:** Integratietests voor betaling en autorisatie
 
 ## Statuslegenda
 
@@ -14,9 +14,9 @@ Dit document is het vaste startpunt voor iedere volgende bouwstap. Werk het na i
 
 ## Huidige volgende stap
 
-### Geautomatiseerde integratietests voor betaling en autorisatie
+### Geautomatiseerde integratietests voor bracketprogressie
 
-De eerstvolgende aanbevolen bouwstap legt de kritieke registratie-, betaal- en autorisatiestromen vast in geautomatiseerde integratietests voordat de productie-inrichting begint.
+De eerstvolgende aanbevolen bouwstap legt publicatie van de loting, bye-doorstroming, winnaarselectie en veilige correctie van afhankelijke uitslagen vast in dezelfde geïsoleerde integratietestomgeving.
 
 ## 0. Technische basis en beheerinterface
 
@@ -163,7 +163,8 @@ Relevante migratie: `010_staff_password_resets.sql` voegt reset-tokens en het e-
 
 ### Nog nodig
 
-- ⬜ Geautomatiseerde integratietests voor betaling, autorisatie en bracketprogressie.
+- ✅ Geautomatiseerde integratietests voor registratiecapaciteit, betaling, webhook-idempotentie, rollen, CSRF en sessie-intrekking.
+- ⬜ Geautomatiseerde integratietests voor bracketprogressie.
 - ⬜ Back-up- en herstelprocedure.
 - ⬜ Privacyretentie en anonimisatietaak activeren.
 - ⬜ Securityreview.

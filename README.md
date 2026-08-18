@@ -47,7 +47,11 @@ Het project gebruikt ESLint voor React/TypeScript-codekwaliteit en Prettier voor
 npm run check       # ESLint en opmaak controleren
 npm run lint:fix    # automatisch herstelbare ESLint-regels toepassen
 npm run format      # alle ondersteunde bestanden formatteren
+npm run test:integration # geïsoleerde API/MySQL-tests voor betaling en autorisatie
+npm run test:all    # reguliere en integratietests
 ```
+
+De integratietests gebruiken `docker-compose.integration.yml`, bouwen een geïsoleerde testdatabase op en ruimen die na afloop weer op. De fake betaalprovider is technisch afgeschermd en kan uitsluitend met `APP_ENV=testing` worden geactiveerd.
 
 ## PHP/MySQL API
 

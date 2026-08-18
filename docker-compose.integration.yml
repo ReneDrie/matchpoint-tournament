@@ -1,0 +1,42 @@
+services:
+  api-test:
+    build: ./backend
+    ports:
+      - "18080:80"
+    environment:
+      APP_ENV: testing
+      APP_URL: http://localhost:18080
+      APP_BASE_PATH: ""
+      FRONTEND_URL: http://localhost:3000
+      COOKIE_PATH: /
+      DB_HOST: database-test
+      DB_PORT: 3306
+      DB_DATABASE: matchpoint_test
+      DB_USERNAME: matchpoint_test
+      DB_PASSWORD: matchpoint_test
+      MOLLIE_API_KEY: test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      MOLLIE_FAKE: "true"
+      MOLLIE_FAKE_GET_STATUS: paid
+      BREVO_API_KEY: ""
+    depends_on:
+      database-test:
+        condition: service_healthy
+
+  database-test:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: matchpoint_test
+      MYSQL_USER: matchpoint_test
+      MYSQL_PASSWORD: matchpoint_test
+      MYSQL_ROOT_PASSWORD: integration-root-only
+    volumes:
+      - integration_mysql:/var/lib/mysql
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-umatchpoint_test", "-pmatchpoint_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  integration_mysql:

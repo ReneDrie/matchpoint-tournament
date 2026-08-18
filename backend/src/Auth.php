@@ -83,7 +83,7 @@ final class Auth
     {
         $provided = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
         if ($provided === '' || !hash_equals($user['csrf_token'], $provided)) {
-            Http::json(['error' => 'Ongeldige beveiligingstoken. Vernieuw de pagina en probeer opnieuw.'], 419);
+            Http::json(['error' => 'Ongeldige beveiligingstoken. Vernieuw de pagina en probeer opnieuw.'], 403);
         }
     }
 

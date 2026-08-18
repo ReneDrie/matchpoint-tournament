@@ -6,9 +6,9 @@ use Matchpoint\Audit;
 use Matchpoint\Auth;
 use Matchpoint\Database;
 use Matchpoint\Http;
+use Matchpoint\PaymentGateway;
 use Matchpoint\RateLimiter;
 use Matchpoint\Xlsx;
-use Mollie\Api\MollieApiClient;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -655,7 +655,7 @@ try {
         $acceptUrl = $frontend . ($frontendBase ? '/' . $frontendBase : '') . '/beheer/uitnodiging?token=' . $token;
         $mailStatus = sendTransactionalEmail($db, null, (int)$user['id'], 'staff_invitation', $email, 'Uitnodiging voor Matchpoint Tournament', '<h1>Je bent uitgenodigd</h1><p>Hallo ' . htmlspecialchars($name) . ', maak je Host-account aan via <a href="' . htmlspecialchars($acceptUrl) . '">deze veilige link</a>. De link is 24 uur geldig.</p>', ['invitation_id' => $invitationId, 'accept_url' => $acceptUrl]);
         $response = ['invitation_id' => $invitationId, 'expires_at' => $expiresAt, 'email_status' => $mailStatus];
-        if (getenv('APP_ENV') === 'local') $response['accept_url'] = $acceptUrl;
+        if (in_array(getenv('APP_ENV'), ['local', 'testing'], true)) $response['accept_url'] = $acceptUrl;
         Http::json($response, 201);
     }
 
@@ -2095,8 +2095,6 @@ try {
         $playerId = (int)$db->lastInsertId();
         if ($invitation) $db->prepare("UPDATE waitlist_entries SET status = 'registered', invitation_token_hash = NULL WHERE id = ?")->execute([(int)$invitation['id']]);
 
-        $mollie = new MollieApiClient();
-        $mollie->setApiKey(getenv('MOLLIE_API_KEY') ?: '');
         $amount = number_format(((int)$tournament['registration_price_cents']) / 100, 2, '.', '');
         $appUrl = rtrim(getenv('APP_URL') ?: 'http://localhost:8080', '/');
         $frontendUrl = rtrim(getenv('FRONTEND_URL') ?: 'http://localhost:3000', '/');
@@ -2109,7 +2107,7 @@ try {
             'metadata' => ['player_id' => $playerId, 'tournament_id' => (int)$tournament['id']],
         ];
         if (getenv('APP_ENV') !== 'local') $paymentParameters['webhookUrl'] = "{$appUrl}/api/payments/mollie-webhook";
-        $payment = $mollie->payments->create($paymentParameters);
+        $payment = PaymentGateway::create($paymentParameters);
         $db->prepare("INSERT INTO payments (player_id, provider, provider_payment_id, amount_cents, currency, status) VALUES (?, 'mollie', ?, ?, ?, ?)")
             ->execute([$playerId, $payment->id, (int)$tournament['registration_price_cents'], $tournament['currency'], $payment->status]);
         Audit::record($db, 'registration.started', 'player', $playerId, null, (int)$tournament['id']);
@@ -2124,9 +2122,7 @@ try {
         $statement->execute([hash('sha256', $token)]);
         $stored = $statement->fetch();
         if (!$stored) Http::json(['error' => 'Deze betaallink is ongeldig of verlopen.'], 410);
-        $mollie = new MollieApiClient();
-        $mollie->setApiKey(getenv('MOLLIE_API_KEY') ?: '');
-        $payment = $mollie->payments->get($stored['provider_payment_id']);
+        $payment = PaymentGateway::get($stored['provider_payment_id']);
         reconcileMolliePayment($db, $payment, $stored);
         Http::json(['payment' => ['status' => $payment->status, 'registration_status' => $payment->isPaid() ? 'confirmed' : $stored['registration_status'], 'player_name' => $stored['player_name'], 'tournament_name' => $stored['tournament_name'], 'amount' => '€ ' . number_format(((int)$stored['amount_cents']) / 100, 2, ',', '.')]]);
     }
@@ -2134,9 +2130,7 @@ try {
     if ($method === 'POST' && $path === '/api/payments/mollie-webhook') {
         $paymentId = $_POST['id'] ?? null;
         if (!$paymentId) Http::json(['error' => 'Payment ID ontbreekt'], 400);
-        $mollie = new MollieApiClient();
-        $mollie->setApiKey(getenv('MOLLIE_API_KEY') ?: '');
-        $payment = $mollie->payments->get($paymentId);
+        $payment = PaymentGateway::get($paymentId);
         $statement = $db->prepare('SELECT py.id, py.player_id, py.status, p.tournament_id, p.name AS player_name, p.email, t.name AS tournament_name FROM payments py JOIN players p ON p.id = py.player_id JOIN tournaments t ON t.id = p.tournament_id WHERE py.provider_payment_id = ?');
         $statement->execute([$paymentId]);
         $stored = $statement->fetch();
@@ -2149,5 +2143,5 @@ try {
 } catch (Throwable $error) {
     if (isset($db) && $db->inTransaction()) $db->rollBack();
     error_log($error->getMessage());
-    Http::json(['error' => getenv('APP_ENV') === 'local' ? $error->getMessage() : 'Interne serverfout'], 500);
+    Http::json(['error' => in_array(getenv('APP_ENV'), ['local', 'testing'], true) ? $error->getMessage() : 'Interne serverfout'], 500);
 }
